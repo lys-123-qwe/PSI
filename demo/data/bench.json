@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-11-10T08:17:37+0800",
+  "os": "Linux-5.15.0-139-generic-x86_64-with-glibc2.29",
+  "kernel": "5.15.0-139-generic",
+  "patched": true,
+  "host": "lys-virtual-machine",
+  "cpu": "x86_64",
+  "nproc": 32,
+  "mem_gb": 251.9,
+  "binary": "/home/lys/psi-demo/myPSI-frontend-patched",
+  "benchmark": {
+    "mode": "serial",
+    "runs_per_size": 1,
+    "sizes": [
+      10,
+      11,
+      12
+    ],
+    "k": 512,
+    "common": 512,
+    "timeout_s": 300.0
+  },
+  "cases": [
+    {
+      "n": 10,
+      "k": 512,
+      "common": 512,
+      "wall_s": 4.23,
+      "total_s": 1.63066,
+      "offline_s": 0.074841,
+      "share_s": 0.172657,
+      "intersection_s": 1.38316,
+      "comm_mb": 36.0078,
+      "intersection": 512,
+      "accepted": true,
+      "returncode": 0
+    },
+    {
+      "n": 11,
+      "k": 512,
+      "common": 512,
+      "wall_s": 8.69,
+      "total_s": 6.0852,
+      "offline_s": 0.164585,
+      "share_s": 0.321273,
+      "intersection_s": 5.59934,
+      "comm_mb": 84.0078,
+      "intersection": 512,
+      "accepted": true,
+      "returncode": 0
+    },
+    {
+      "n": 12,
+      "k": 512,
+      "common": 512,
+      "wall_s": 29.03,
+      "total_s": 23.7184,
+      "offline_s": 0.388201,
+      "share_s": 0.642888,
+      "intersection_s": 22.6873,
+      "comm_mb": 180.008,
+      "intersection": 512,
+      "accepted": true,
+      "returncode": 0
+    }
+  ]
+}

@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PSI Lab · 隐私求交演示</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">Ψ</div>
+        <div>
+          <div class="brand-title">PSI<span>Lab</span></div>
+          <div class="brand-sub">隐私求交 · 概率门限 · 可演示系统</div>
+        </div>
+      </div>
+      <nav class="steps" id="stepNav">
+        <button data-target="scenario" class="active"><i>1</i>场景</button>
+        <button data-target="setup"><i>2</i>参数</button>
+        <button data-target="running"><i>3</i>运行</button>
+        <button data-target="result"><i>4</i>结果</button>
+        <button data-target="benchmark"><i>5</i>性能</button>
+      </nav>
+      <a class="ghost ghost-small" href="/real">真实数据 Demo →</a>
+      <div class="mode-pill" id="modePill">演示模式</div>
+    </header>
+
+    <main>
+      <section class="screen active" id="screen-scenario">
+        <div class="hero">
+          <div class="kicker">PRIVACY-PRESERVING MATCHING</div>
+          <h1>两份名单，<br class="mobile-break" /><span>只算交集</span>，不交数据。</h1>
+          <p class="hero-sub">选择业务场景，设置交集门限，现场跑一次隐私求交。原始集合不出域，各参与方只得到“够 / 不够”以及必要的匹配结果。</p>
+          <div class="hero-stats">
+            <div><strong>2<sup>20</sup></strong><span>百万级集合</span></div>
+            <div><strong>7.36s</strong><span>论文口径 · 2^20 在线耗时</span></div>
+            <div><strong>k</strong><span>交集数量门限</span></div>
+          </div>
+          <p class="hero-note">首屏数字出自 CCS '23 论文表 7.7（2^20、k=8000、32 线程 LAN、半诚实），不是本机实测；本机实测见第 5 步“性能”。</p>
+        </div>
+        <div class="section-head">
+          <h2>选择演示场景</h2>
+          <span>先选一个最容易讲懂的业务故事</span>
+        </div>
+        <div class="scenario-grid" id="scenarioGrid"></div>
+        <div class="section-head muted-head">
+          <h2>合规提示</h2>
+          <span>老师特别提醒：儿童教育方向先做合法性/合理性评估</span>
+        </div>
+        <div class="scenario-grid disabled-grid" id="disabledGrid"></div>
+      </section>
+
+      <section class="screen" id="screen-setup">
+        <div class="section-head">
+          <div>
+            <div class="kicker">STEP 02</div>
+            <h1>设置本次比对</h1>
+          </div>
+          <button class="ghost" data-target="scenario">← 换场景</button>
+        </div>
+        <div class="setup-layout">
+          <aside class="panel scenario-summary">
+            <div class="panel-label">当前场景</div>
+            <div class="summary-icon" id="setupIcon">AD</div>
+            <h2 id="setupScenarioName">广告转化归因</h2>
+            <p id="setupTagline"></p>
+            <div class="party-row" id="partyRow">
+              <div class="party-card"><span>A 方</span><strong id="partyALabel">广告平台</strong></div>
+              <div class="party-arrow">⇄</div>
+              <div class="party-card"><span>B 方</span><strong id="partyBLabel">商家</strong></div>
+              <div class="party-divider hidden" id="partyCDivider">⇄</div>
+              <div class="party-card hidden" id="partyCCard"><span>C 方</span><strong id="partyCLabel">支付机构</strong></div>
+            </div>
+            <div class="mini-fact"><span>集合元素</span><b id="elementLabel">脱敏用户 ID</b></div>
+            <div class="mini-fact"><span>元素格式</span><b id="elementFormatLabel">uid_ + 6 位十六进制</b></div>
+            <div class="mini-fact"><span>元素示例</span><b id="elementExampleLabel">uid_4f9a2c</b></div>
+            <div class="mini-fact"><span>安全模型</span><b id="securityLabel">半诚实</b></div>
+            <div class="mini-fact"><span>数据来源</span><b id="dataSourceLabel">曝光名单 / 成交订单 / 支付流水</b></div>
+            <div class="scenario-example" id="setupExample"></div>
+          </aside>
+
+          <div class="panel controls">
+            <div class="control-group" id="nSizeGroup">
+              <div class="control-head">
+                <label for="nLog">集合规模</label>
+                <output id="nValue">2^20 = 1,048,576</output>
+              </div>
+              <input id="nLog" type="range" min="10" max="20" step="1" value="20" />
+              <div class="range-labels"><span>2^10</span><span>2^15</span><span>2^20</span></div>
+              <p class="hint" id="nHint">2^20 为论文基准；真实后端当前最大支持 2^17。</p>
+            </div>
+
+            <div class="control-group">
+              <div class="control-head">
+                <label for="threshold" id="thresholdLabel">交集门限 k</label>
+                <output id="thresholdValue">8,000</output>
+              </div>
+              <input id="threshold" type="range" min="0" max="1048576" step="1" value="8000" />
+              <p class="hint" id="thresholdHint">交集人数 ≥ k 才输出匹配；否则输出 ⊥。</p>
+            </div>
+
+            <div class="control-group" id="commonGroup">
+              <div class="control-head">
+                <label for="common">实际交集（演示用）</label>
+                <output id="commonValue">12,345</output>
+              </div>
+              <input id="common" type="range" min="0" max="1048576" step="1" value="12345" />
+              <p class="hint" id="commonHint">仅演示模式可调；真实后端由协议算出，不直接暴露。</p>
+            </div>
+
+            <div class="control-row">
+              <div class="control-group compact">
+                <label for="parties">参与方</label>
+                <select id="parties">
+                  <option value="2">2 方（演示模式）</option>
+                  <option value="3">3 方（真实后端 Qin-3）</option>
+                  <option value="5" disabled>5 方（远期）</option>
+                  <option value="10" disabled>10 方（远期）</option>
+                </select>
+              </div>
+              <div class="control-group compact">
+                <label>运行模式</label>
+                <div class="mode-toggle" id="modeToggle">
+                  <button data-mode="mock" class="active">演示模式</button>
+                  <button data-mode="live">真实后端</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="backend-note" id="backendNote"></div>
+            <button class="primary big" id="startBtn">开始隐私求交 <span>→</span></button>
+          </div>
+
+          <div class="panel data-panel" id="dataPanel">
+            <div class="data-head">
+              <div>
+                <div class="panel-label">DATA SOURCE</div>
+                <h2>两方数据准备</h2>
+                <p>自动模式用于百万级性能演示；手动模式用于现场讲清 A/B 集合、交集和门限。</p>
+              </div>
+              <div class="data-toggle" id="dataModeToggle">
+                <button data-data-mode="generated" class="active" type="button">自动生成</button>
+                <button data-data-mode="custom" type="button">手动输入</button>
+              </div>
+            </div>
+
+            <div class="data-body" id="generatedData">
+              <div class="dataset-grid">
+                <div class="dataset-card">
+                  <div class="dataset-title">
+                    <span class="party-badge">A 方</span>
+                    <strong id="generatedALabel">广告平台</strong>
+                    <span id="generatedACount">—</span>
+                  </div>
+                  <pre class="dataset-preview" id="generatedAPreview">选择场景后显示样例</pre>
+                </div>
+                <div class="dataset-card">
+                  <div class="dataset-title">
+                    <span class="party-badge b">B 方</span>
+                    <strong id="generatedBLabel">商家</strong>
+                    <span id="generatedBCount">—</span>
+                  </div>
+                  <pre class="dataset-preview" id="generatedBPreview">选择场景后显示样例</pre>
+                </div>
+              </div>
+              <div class="data-foot">
+                <span id="generatedSummary">—</span>
+                <button class="ghost ghost-small" id="regenerateDataBtn" type="button">重新生成样例</button>
+              </div>
+              <p class="hint">自动模式生成合成集合，页面只展示前几条；真实数据不会上传到第三方。</p>
+            </div>
+
+            <div class="data-body hidden" id="customData">
+              <div class="dataset-grid">
+                <label class="dataset-card">
+                  <div class="dataset-title">
+                    <span class="party-badge">A 方</span>
+                    <strong id="customALabel">广告平台</strong>
+                    <span id="customACount">0 条</span>
+                  </div>
+                  <textarea id="setAText" rows="8" spellcheck="false" placeholder="每行一个元素，也支持逗号/空格分隔"></textarea>
+                </label>
+                <label class="dataset-card">
+                  <div class="dataset-title">
+                    <span class="party-badge b">B 方</span>
+                    <strong id="customBLabel">商家</strong>
+                    <span id="customBCount">0 条</span>
+                  </div>
+                  <textarea id="setBText" rows="8" spellcheck="false" placeholder="每行一个元素，也支持逗号/空格分隔"></textarea>
+                </label>
+              </div>
+              <div class="data-actions">
+                <button class="ghost" id="sampleSetsBtn" type="button">填入示例数据</button>
+                <button class="ghost" id="clearSetsBtn" type="button">清空</button>
+                <button class="primary" id="analyzeSetsBtn" type="button">计算交集</button>
+              </div>
+              <div class="custom-result hidden" id="customResult"></div>
+              <p class="hint">手动模式最多 200 条/方，仅用于演示本地集合关系和门限判断，不是 PSI；真实文件请走右上角「真实数据 Demo」。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-running">
+        <div class="run-head">
+          <div>
+            <div class="kicker">PROTOCOL RUNNING</div>
+            <h1 id="runScenario">广告转化归因</h1>
+          </div>
+          <div class="timer-box"><span>已运行</span><strong id="runTimer">0.00s</strong></div>
+        </div>
+        <div class="run-progress hidden" id="runProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <i id="runProgressBar"></i>
+        </div>
+        <div class="run-layout">
+          <div class="panel flow-panel">
+            <div class="flow">
+              <div class="node"><span>A 方</span><strong id="flowA">广告平台</strong><small>原始集合不出域</small></div>
+              <div class="flow-line"><i id="flowDot"></i></div>
+              <div class="node"><span>B 方</span><strong id="flowB">商家</strong><small>原始集合不出域</small></div>
+            </div>
+            <div class="privacy-banner" id="privacyBanner">只交换协议消息：哈希值、OPRF 输出、秘密分享份额；不交换原始 ID。</div>
+            <div class="run-meta" id="runMeta"></div>
+            <div class="coach" id="coach" aria-live="polite">正在准备数据与参数…</div>
+            <div class="stage-times hidden" id="stageTimes">
+              <div><span>离线</span><b id="tOffline">—</b></div>
+              <div><span>份额收发</span><b id="tShare">—</b></div>
+              <div><span>交集</span><b id="tIntersect">—</b></div>
+            </div>
+          </div>
+          <div class="panel steps-panel">
+            <div class="panel-label">协议阶段</div>
+            <ol class="run-steps" id="stepList"></ol>
+          </div>
+        </div>
+        <div class="run-error hidden" id="runError" role="alert" aria-live="assertive">
+          <div class="run-error-head">
+            <span class="run-error-icon">!</span>
+            <strong id="runErrorTitle">运行失败</strong>
+          </div>
+          <p class="run-error-message" id="runErrorMessage"></p>
+          <pre class="run-error-detail hidden" id="runErrorDetail"></pre>
+          <div class="run-error-actions">
+            <button class="primary" id="runRetryBtn">重试</button>
+            <button class="ghost" id="runBackBtn">返回参数</button>
+            <button class="ghost ghost-small" id="runToggleDetailBtn">显示原始错误</button>
+            <button class="ghost ghost-small" id="runCopyErrorBtn">复制错误</button>
+          </div>
+        </div>
+        <div class="run-actions"><button class="ghost" id="cancelBtn">取消（真实终止后端）</button></div>
+      </section>
+
+      <section class="screen" id="screen-result">
+        <div class="section-head">
+          <div>
+            <div class="kicker">RESULT</div>
+            <h1>本次比对结果</h1>
+          </div>
+          <div class="result-source" id="resultSource">演示模拟</div>
+        </div>
+        <div class="result-layout">
+          <div class="panel decision-card" id="decisionCard">
+            <div class="decision-badge" id="decisionBadge">达到门限</div>
+            <div class="result-big" id="resultBig">12,345</div>
+            <div class="result-sub" id="resultSub">≥ 门限 8,000，输出交集</div>
+            <p class="result-explain" id="resultExplain"></p>
+          </div>
+          <div class="panel metrics-panel">
+            <div class="panel-label">运行指标</div>
+            <div class="metric-grid" id="metricGrid"></div>
+            <div class="action-card" id="actionCard"></div>
+            <div class="result-actions">
+              <button class="primary" id="replayBtn">改门限重跑</button>
+              <button class="ghost" id="changeScenarioBtn">换场景</button>
+              <button class="ghost" id="copyBtn">复制结论</button>
+              <button class="ghost" id="exportBtn">导出 JSON</button>
+              <button class="ghost" id="benchmarkBtn">看性能对比</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-note" id="demoNote"></div>
+      </section>
+
+      <section class="screen" id="screen-benchmark">
+        <div class="section-head">
+          <div>
+            <div class="kicker">BENCHMARK</div>
+            <h1>为什么说它快</h1>
+          </div>
+          <div class="head-actions">
+            <button class="ghost" id="benchCopyBtn">复制实测摘要</button>
+            <button class="ghost" id="benchDownloadBtn">下载 bench.json</button>
+            <button class="ghost" id="benchBackBtn">← 返回结果</button>
+          </div>
+        </div>
+        <div class="bench-layout">
+          <div class="panel chart-panel">
+            <div class="panel-label">百万级 / 门限 TPSI 的时间对比（对数刻度）</div>
+            <div class="bench-legend">
+              <span><i class="dot paper"></i>论文口径</span>
+              <span><i class="dot measured"></i>本机实测</span>
+            </div>
+            <div class="bench-meta" id="benchMeta">正在读取本机实测数据…</div>
+            <div class="bench-chart" id="benchChart"></div>
+            <div class="bench-callout">2023 pTPSI 比旧 TPSI [20] 快约 <b>106×</b>，比旧拼车 [18] 快约 <b>765×</b>。<span>不同论文设置不同，仅作数量级参考。</span></div>
+            <p class="hint">不同论文的硬件、参与方、安全模型不同，不能直接横比；图中只用于说明数量级。</p>
+          </div>
+          <div class="panel paper-panel">
+            <div class="panel-label">两篇优先论文</div>
+            <div class="paper-card">
+              <span class="paper-tag">论文 1 · CCS '23</span>
+              <h3>Efficient Multiparty Probabilistic Threshold PSI</h3>
+              <p>概率门限 PSI：把“交集够不够”做成概率测试，在线阶段接近普通 PSI 的开销。</p>
+              <div class="paper-fact"><b>2^20 / k=8000</b><span>在线 7.36s（半诚实）/ 9.74s（恶意），LAN，32 线程</span></div>
+            </div>
+            <div class="paper-card">
+              <span class="paper-tag">论文 4 · TVT '25</span>
+              <h3>Privacy-Preserving Matching for IoV Ride-Sharing</h3>
+              <p>把门限 PSI 落到拼车：路线虚拟点、交集规模测试、恶意模型下的匹配。</p>
+              <div class="paper-fact"><b>N ≤ 10 / n ≤ 16384</b><span>论文实验设置；当前后端建议先跑 2 方</span></div>
+            </div>
+            <table class="bench-table" id="benchTable"></table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>PSI Lab Demo · 合成数据演示 · 真实数据请走「真实数据 Demo」</span>
+      <span class="footer-right">
+        <span id="footerBackend">backend: checking…</span>
+        <button class="footer-link" id="diagBtn" type="button">部署自检</button>
+      </span>
+    </footer>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="modal hidden" id="diagModal">
+    <div class="modal-backdrop" data-close-diag></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="diagTitle">
+      <div class="modal-head">
+        <div>
+          <div class="kicker">DEPLOY CHECK</div>
+          <h2 id="diagTitle">部署自检</h2>
+        </div>
+        <button class="ghost ghost-small" id="diagCloseBtn" type="button">关闭</button>
+      </div>
+      <div class="diag-summary" id="diagSummary">正在检查…</div>
+      <div class="diag-server" id="diagServer"></div>
+      <div class="diag-list" id="diagList"></div>
+      <div class="modal-actions">
+        <button class="ghost" id="diagRefreshBtn" type="button">重新检查</button>
+        <button class="ghost" id="diagCopyBtn" type="button">复制自检摘要</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

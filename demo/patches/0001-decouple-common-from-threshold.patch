@@ -1,0 +1,128 @@
+--- a/frontend/main.cpp
++++ b/frontend/main.cpp
+@@ -140,19 +140,19 @@
+ 	{
+ 
+ 		// 参与方P1
+-		TPsiRecv(atoi(argv[2]), atoi(argv[3]));
++		TPsiRecv(atoi(argv[2]), atoi(argv[3]), argc > 4 ? atoi(argv[4]) : atoi(argv[3]));
+ 
+ 
+ 	}
+ 	else if (argv[1][0] == '1')
+ 	{
+ 		// 参与方P0
+-		TPsiSend(1, atoi(argv[2]), atoi(argv[3]));
++		TPsiSend(1, atoi(argv[2]), atoi(argv[3]), argc > 4 ? atoi(argv[4]) : atoi(argv[3]));
+ 	}
+ 	else
+ 	{
+ 		// 其他参与方
+-		TPsiSend(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
++		TPsiSend(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), argc > 4 ? atoi(argv[4]) : atoi(argv[3]));
+ 
+ 	}
+ 
+--- a/frontend/TpsiMain.cpp
++++ b/frontend/TpsiMain.cpp
+@@ -21,7 +21,7 @@
+ 
+ 
+ 
+-void TPsiSend(int flag, int setNum, int threshold)
++void TPsiSend(int flag, int setNum, int threshold, int commonIn)
+ 
+ {
+     int mNumItems;
+@@ -80,6 +80,9 @@
+         int setSize = mNumItems;
+         int tt = mNumThreads;
+         u64 thr = mThreshold;
++        u64 common = commonIn;
++        if (commonIn < 0) common = 0;
++        if (common > (u64)setSize) common = setSize;
+ 
+         //auto chls = params.getChannels(tt);
+ 
+@@ -105,11 +108,11 @@
+               }*/
+               // 为了测试,现需要产生达到门限值的共同的集合元素
+             PRNG prngTest(_mm_set_epi32(8888888, 8888888, 888888, 88888888));
+-            for (u64 i = 0; i < thr; ++i)
++            for (u64 i = 0; i < common; ++i)
+             {
+                 sendSet[i] = prngTest.get<block>() + i;
+             }
+-            for (u64 i = thr; i < setSize; ++i)
++            for (u64 i = common; i < setSize; ++i)
+             {
+                 sendSet[i] = prng.get<block>();
+             }
+@@ -143,6 +146,9 @@
+         int setSize = mNumItems;
+         int tt = mNumThreads;
+         u64 thr = mThreshold;
++        u64 common = commonIn;
++        if (commonIn < 0) common = 0;
++        if (common > (u64)setSize) common = setSize;
+ 
+         for (u64 jj = 0; jj < 1; jj++)
+ 
+@@ -153,11 +159,11 @@
+ 
+             // 为了测试,现需要产生达到门限值的共同的集合元素
+             PRNG prngTest(_mm_set_epi32(8888888, 8888888, 888888, 88888888));
+-            for (u64 i = 0; i < thr; ++i)
++            for (u64 i = 0; i < common; ++i)
+             {
+                 sendSet[i] = prngTest.get<block>() + i;
+             }
+-            for (u64 i = thr; i < setSize; ++i)
++            for (u64 i = common; i < setSize; ++i)
+             {
+                 sendSet[i] = prng.get<block>();
+             }
+@@ -186,7 +192,7 @@
+ }
+ 
+ 
+-void TPsiRecv(int setNum, int threshold)
++void TPsiRecv(int setNum, int threshold, int commonIn)
+ 
+ {
+     int mNumItems;
+@@ -245,6 +251,9 @@
+     int numThreads = mNumThreads;
+     //u64 thr = mThreshold;
+     u64 thr = mThreshold;
++    u64 common = commonIn;
++    if (commonIn < 0) common = 0;
++    if (common > (u64)setSize) common = setSize;
+ 
+ 
+     for (u64 jj = 0; jj < 1; jj++)
+@@ -256,11 +265,11 @@
+ 
+         // 为了测试,现需要产生达到门限值的共同的集合元素
+         PRNG prngTest(_mm_set_epi32(8888888, 8888888, 888888, 88888888));
+-        for (u64 i = 0; i < thr; ++i)
++        for (u64 i = 0; i < common; ++i)
+         {
+             set[i] = prngTest.get<block>() + i;
+         }
+-        for (u64 i = thr; i < setSize; ++i)
++        for (u64 i = common; i < setSize; ++i)
+         {
+             set[i] = prng.get<block>();
+         }
+--- a/frontend/TPsiMain.h
++++ b/frontend/TPsiMain.h
+@@ -1,6 +1,6 @@
+ #pragma once
+ #include <vector> 
+ 
+-void TPsiSend(int flag,int setNum,int threshold);
+-void TPsiRecv(int setNum, int threshold);
++void TPsiSend(int flag, int setNum, int threshold, int common);
++void TPsiRecv(int setNum, int threshold, int common);
+ 

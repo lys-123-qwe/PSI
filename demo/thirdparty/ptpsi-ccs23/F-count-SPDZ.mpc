@@ -1,0 +1,61 @@
+from util import if_else
+from Compiler import types
+from Compiler import mpc_math
+import time
+program.bit_length = 128
+
+
+def set_compile(a,b):
+    n1 = len(a)
+    n2 = len(b)
+    result = Array(1,sfix)
+    result.assign_all(0)
+    for i in range(n1):
+        for j in range(n2):
+            match = a[i] == b[j]
+            result[0] = if_else(match, sfix(1), result[0])
+    return result[0]
+
+P1_indexarr=[] # data from GS-phase
+P2_indexarr=[] # data from GS-phase
+P1_count = 6502 # data from GS-phase
+P1_count = 6540 # data from GS-phase
+P1_data = Array(P1_count,sint)
+P2_data = Array(P2_count,sint)
+P1_data.input_from(0)
+P2_data.input_from(1)
+#print_str('%s ', a[1][1].reveal())
+#print_str('%s ', b[1][1].reveal())
+#print_ln('data is ok')
+
+count = MemValue(sfix(0))
+
+p1_start = 0
+p2_start = 0
+step = 0
+Round= 3881 # data from GS-phase
+#for_range_multithread(4,10,100)
+@for_range_opt(Round)
+def _(k):
+    global p1_start,p2_start,step
+    p1_set = P1_data.get_range(p1_start,P1_indexarr[step])
+    #print_str('%s ', p1_set[0].reveal())
+    p2_set = P2_data.get_range(p2_start,P2_indexarr[step])
+    #print_str('%s ', p2_set[0].reveal())
+    count.iadd(set_compile(p1_set,p2_set))
+    p1_start = p1_start + P1_indexarr[step]
+    p2_start = p2_start + P2_indexarr[step]
+    step += 1
+
+
+
+#print_str('%s ', count.reveal())
+
+target = sfix(2500); # 5/8 *pk
+
+compare_result = count > target
+print_str('%s ', compare_result.reveal())
+print_ln('end')
+
+#end = time.time()
+#print_ln(str(end-start))

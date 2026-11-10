@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PSI Lab · 真实数据三方求交</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    .real-hero { max-width: 900px; padding: 20px 0 30px; }
+    .real-hero p { color: var(--muted); font-size: 15px; max-width: 780px; }
+    .scenario-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    .scenario-tab {
+      border: 1px solid var(--line); background: rgba(8, 21, 35, 0.62); color: var(--muted);
+      padding: 8px 13px; border-radius: 999px; font-size: 12px; transition: 0.2s ease;
+    }
+    .scenario-tab:hover { color: var(--text); border-color: var(--line-strong); }
+    .scenario-tab.active { color: var(--cyan); border-color: rgba(56, 225, 208, 0.42); background: rgba(56, 225, 208, 0.1); }
+    .scenario-real-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .real-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .real-card { min-width: 0; }
+    .dataset-title small { color: var(--muted); font-size: 11px; }
+    .real-card input[type="file"] {
+      width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px;
+      border: 1px dashed var(--line-strong); background: rgba(2, 9, 16, 0.55);
+      color: var(--text); font-size: 12px; cursor: pointer;
+    }
+    .real-card input[type="file"]::file-selector-button {
+      margin-right: 10px; padding: 7px 10px; border: 1px solid var(--line-strong);
+      border-radius: 8px; background: rgba(56, 225, 208, 0.1); color: var(--cyan); cursor: pointer;
+    }
+    .party-badge.c { background: rgba(120, 150, 255, 0.16); color: #aebfff; }
+    .real-controls { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
+    .real-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+    .real-controls input[type="number"] {
+      width: 150px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong);
+      background: rgba(2, 9, 16, 0.62); color: var(--text); font-size: 15px;
+    }
+    .real-controls input[type="number"].invalid {
+      border-color: #ff7777; box-shadow: 0 0 0 2px rgba(255, 90, 90, 0.16);
+    }
+    .field-error { color: #ff8d8d; font-size: 11px; line-height: 1.45; }
+    .real-controls .primary { margin-left: auto; }
+    .real-meta { margin-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .real-meta b { color: var(--text); }
+    .privacy-note { margin: 18px 0 40px; padding: 18px 20px; border-radius: 14px; border: 1px solid var(--line); background: rgba(8, 21, 35, 0.55); }
+    .privacy-note strong { color: var(--cyan); font-size: 13px; }
+    .privacy-note ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.85; }
+    .real-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .real-preview { margin-top: 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(2, 9, 16, 0.5); font: 12px/1.8 "Cascadia Code", Consolas, monospace; color: var(--muted); word-break: break-all; white-space: pre-wrap; }
+    .sample-downloads { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 11px; }
+    .sample-link { color: var(--cyan); text-decoration: none; border-bottom: 1px dashed rgba(56, 225, 208, 0.35); padding-bottom: 1px; }
+    .sample-link:hover { color: var(--text); border-color: var(--text); }
+    .sample-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(8, 21, 35, 0.5); }
+    .sample-actions > span:first-child { color: var(--text); font-size: 12px; font-weight: 600; }
+    .sample-action { border: 1px solid var(--line-strong); border-radius: 9px; padding: 8px 11px; background: rgba(2, 9, 16, 0.55); color: var(--muted); font-size: 11px; cursor: pointer; transition: 0.18s ease; }
+    .sample-action:hover { color: var(--text); border-color: var(--line-strong); transform: translateY(-1px); }
+    .sample-action.pass { color: var(--cyan); border-color: rgba(56, 225, 208, 0.36); background: rgba(56, 225, 208, 0.08); }
+    .sample-action.reject { color: #ffaaaa; border-color: rgba(255, 120, 120, 0.32); background: rgba(255, 120, 120, 0.07); }
+    .sample-action:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+    .sample-actions .hint { flex-basis: 100%; margin: 0; }
+    .decision-card.accept .decision-badge { color: var(--cyan); border-color: rgba(56, 225, 208, 0.4); }
+    .decision-card.reject .decision-badge { color: #ff9b9b; border-color: rgba(255, 120, 120, 0.35); }
+    @media (max-width: 980px) { .real-grid { grid-template-columns: 1fr; } .real-controls .primary { margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">Ψ</div>
+        <div>
+          <div class="brand-title">PSI<span>Lab</span></div>
+          <div class="brand-sub">真实数据 · 三方门限求交</div>
+        </div>
+      </div>
+      <a href="/" style="margin-left:auto;padding:8px 12px;border:1px solid var(--line);border-radius:11px;color:var(--muted);text-decoration:none;font-size:11px">← 返回性能演示</a>
+      <div class="mode-pill" id="modePill">真实后端</div>
+    </header>
+
+    <main>
+      <section class="screen active">
+        <div class="real-hero">
+          <div class="kicker">REAL DATA / 3-PARTY TPSI</div>
+          <h1>用你自己的数据，<span>现场跑一次</span>。</h1>
+          <p>三方各选一个文本文件，每行一个元素。浏览器先在本机做 SHA-256、截取 128 位，只有哈希进入 Qin-3 门限协议；明文不上传、不落盘。</p>
+          <div class="scenario-tabs" id="scenarioTabs"></div>
+          <p class="scenario-real-note" id="scenarioRealNote">选择一个业务场景后，A/B/C 角色与门限含义会一起更新。</p>
+        </div>
+      </section>
+
+      <section class="panel" id="setupPanel">
+        <div class="panel-label">STEP 01 · 选择三份集合</div>
+        <div class="real-grid">
+          <label class="dataset-card real-card">
+            <div class="dataset-title"><span class="party-badge">A 方</span><strong id="roleLabelA">广告平台</strong><small id="sourceLabelA">曝光名单</small><span id="countA">未选择</span></div>
+            <input type="file" id="fileA" accept=".txt,.csv,.tsv,.list,text/plain" />
+            <pre class="dataset-preview" id="previewA">每行一个元素；CSV 请先抽成一列</pre>
+          </label>
+          <label class="dataset-card real-card">
+            <div class="dataset-title"><span class="party-badge b">B 方</span><strong id="roleLabelB">商家</strong><small id="sourceLabelB">成交订单</small><span id="countB">未选择</span></div>
+            <input type="file" id="fileB" accept=".txt,.csv,.tsv,.list,text/plain" />
+            <pre class="dataset-preview" id="previewB">每行一个元素；CSV 请先抽成一列</pre>
+          </label>
+          <label class="dataset-card real-card">
+            <div class="dataset-title"><span class="party-badge c">C 方</span><strong id="roleLabelC">支付机构</strong><small id="sourceLabelC">支付流水</small><span id="countC">未选择</span></div>
+            <input type="file" id="fileC" accept=".txt,.csv,.tsv,.list,text/plain" />
+            <pre class="dataset-preview" id="previewC">每行一个元素；CSV 请先抽成一列</pre>
+          </label>
+        </div>
+
+        <div class="sample-downloads">
+          <span>演示样例（A 1,200 / B 1,000 / C 800 行，300 个共同元素）：</span>
+          <a class="sample-link" id="sampleLinkA" href="/static/samples/ad_A.txt" download>下载 A 方样例</a>
+          <a class="sample-link" id="sampleLinkB" href="/static/samples/ad_B.txt" download>下载 B 方样例</a>
+          <a class="sample-link" id="sampleLinkC" href="/static/samples/ad_C.txt" download>下载 C 方样例</a>
+        </div>
+        <div class="sample-actions">
+          <span>一键演示：</span>
+          <button class="sample-action pass" id="samplePassBtn" type="button">载入样例并演示通过（k=200）</button>
+          <button class="sample-action reject" id="sampleRejectBtn" type="button">载入样例并演示拒绝（k=400）</button>
+          <span class="hint">按钮会自动载入当前场景的 A/B/C 三份样例、设置门限并启动真实协议；样例是合成数据。</span>
+        </div>
+
+        <div class="real-meta" id="realMeta">选择三份文件后，这里显示去重条数与协议容量。</div>
+
+        <div class="real-controls">
+          <label><span id="thresholdLabel">最少归因成交人数 k</span>
+            <input type="number" id="threshold" min="1" step="1" inputmode="numeric" value="100" aria-describedby="thresholdHint thresholdError" />
+            <span class="field-error hidden" id="thresholdError" role="alert"></span>
+          </label>
+          <span class="hint" id="thresholdHint">交集 ≥ k 才输出；未达到输出 ⊥。</span>
+          <button class="primary big" id="runBtn">开始真实求交 →</button>
+        </div>
+        <p class="hint" id="perfHint">实测参考（含 2.5s 启动）：2^9≈3.5s，2^10≈4s，2^11≈14s，2^12≈55s，2^13≈3.5min；单方上限 2^17 = 131,072。现场建议 ≤ 2^11。</p>
+      </section>
+
+      <section class="panel hidden" id="progressPanel" style="margin-top:18px">
+        <div class="panel-label">STEP 02 · 三方协议运行中</div>
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+          <div style="font-size:30px;font-weight:800" id="progressTimer">0.00s</div>
+          <div style="flex:1;min-width:220px">
+            <div style="height:8px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden">
+              <i id="progressBar" style="display:block;height:100%;width:5%;background:linear-gradient(90deg,var(--cyan),var(--blue));transition:width .3s"></i>
+            </div>
+            <div class="hint" id="progressStage" style="margin-top:8px">启动两个发送方…</div>
+          </div>
+          <button class="ghost" id="cancelBtn">取消并终止后端</button>
+        </div>
+        <div class="real-preview" id="progressStats">等待后端日志…</div>
+      </section>
+
+      <section class="panel hidden" id="resultPanel" style="margin-top:18px">
+        <div class="panel-label">RESULT · 本次比对</div>
+        <div class="decision-card" id="decisionCard" style="padding:0;border:0;background:transparent">
+          <div class="decision-badge" id="decisionBadge">—</div>
+          <div class="result-big" id="resultBig">—</div>
+          <div class="result-sub" id="resultSub"></div>
+        </div>
+        <div class="real-metrics" id="metricGrid" style="margin-top:18px"></div>
+        <div class="real-preview" id="resultPreview"></div>
+        <div class="action-card" id="actionNote"></div>
+        <div class="data-actions" style="margin-top:16px">
+          <button class="primary" id="rerunBtn">改门限再跑</button>
+          <button class="ghost" id="copyBtn">复制结论</button>
+          <button class="ghost" id="exportBtn">导出 JSON</button>
+          <button class="ghost" id="resetBtn">换一组文件</button>
+        </div>
+        <p class="hint" id="demoNote"></p>
+      </section>
+
+      <section class="run-error hidden" id="errorPanel" style="margin-top:18px" role="alert">
+        <div class="run-error-head"><span class="run-error-icon">!</span><strong>运行失败</strong></div>
+        <p class="run-error-message" id="errorMessage"></p>
+        <pre class="run-error-detail hidden" id="errorDetail"></pre>
+        <div class="run-error-actions">
+          <button class="primary" id="errorBackBtn">返回参数</button>
+          <button class="ghost ghost-small" id="errorToggleBtn">显示原始错误</button>
+        </div>
+      </section>
+
+      <section class="privacy-note">
+        <strong>隐私边界（现场请如实说明）</strong>
+        <ul>
+          <li>明文只留在浏览器内存；HTTP 请求里只有 128-bit 哈希，服务端临时目录也只写哈希。</li>
+          <li>协议是三方 Qin-3：A 为接收方，B/C 为发送方；三方进程当前都跑在同一台演示服务器上，真实部署应各持一台机器。</li>
+          <li>低熵数据（手机号、身份证号）的裸 SHA-256 可被字典攻击；生产环境应换成论文里的 OPRF / 加盐哈希。</li>
+          <li>未达到门限时，页面展示的“参考交集”只用于讲解（服务端对三份哈希本地比对）；协议本身只输出 ⊥，不会给出具体元素。</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/sha256.js"></script>
+  <script src="/static/real.js"></script>
+</body>
+</html>
