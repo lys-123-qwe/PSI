@@ -14,3 +14,10 @@ work/
 # 系统临时文件
 .DS_Store
 Thumbs.db
+
+# 原始源码目录联接（Windows 本地对照，不纳入 Git）
+
+sources/myPSI-Qin-3/*_link/
+
+# 本地真实后端地址（不要提交；复制 example 后填写自己的服务器）
+demo/remote-backend.txt

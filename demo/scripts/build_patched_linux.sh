@@ -13,7 +13,7 @@
 #   patched CLI: frontend <role> <n_log> <threshold> [common]
 #   real data:   MYPSI_IN=<file> (32-hex per line) + MYPSI_OUT=<file> for role 0
 #
-# Verified on 59.70.82.96 (Ubuntu 20.04, gcc-11, cmake 3.22):
+# Reference environment (Ubuntu 20.04, gcc-11, cmake 3.22):
 #   2^10 k=500 common=450 -> "Not reach threshold value"   (~1.1s internal)
 #   2^10 k=500 common=550 -> "mIntersection's size:550"    (~1.7s internal)
 

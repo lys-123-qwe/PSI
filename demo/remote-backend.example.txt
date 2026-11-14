@@ -1,0 +1,14 @@
+# Optional remote real backend.
+#
+# The Python demo can run in two ways:
+#   1. demo mode only: leave this file out (or keep it empty/comments only);
+#   2. real data mode: point to a Linux server that runs this same demo and has
+#      MYPSI_BIN configured, then copy this file to remote-backend.txt.
+#
+# Copy:
+#   cp remote-backend.example.txt remote-backend.txt
+#
+# Then put exactly one URL in remote-backend.txt, for example:
+#   http://192.0.2.10:8787
+#
+# Do not commit remote-backend.txt.  It is in .gitignore.

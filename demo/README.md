@@ -26,18 +26,42 @@
 - 儿童教育卡片只做合规提示，不接真实数据。
 - 零第三方依赖：Python 标准库 + 原生 HTML/CSS/JS，离线可跑。
 
-## 最快跑起来（Windows / macOS，演示模式）
+## 最快跑起来（Windows / macOS / Linux，演示模式）
+
+要求 Python 3.10+，不需要安装任何 pip 包。
+
+Linux / macOS：
 
 ```bash
 cd demo
-python server/app.py --port 8787
+bash start.sh
+```
+
+Windows PowerShell（或双击 `start.cmd`）：
+
+```powershell
+cd demo
+.\start.ps1
 ```
 
 浏览器打开 <http://127.0.0.1:8787>。
 
+> GitHub Pages 只能托管静态文件，不能运行本项目的 `/api/*` 和真实协议；请在本机或服务器上启动 Python 服务。
+
+## 一次启动，两种模式
+
+同一个 Python 服务同时提供两个入口，不需要分别启动：
+
+- `/`：首页，右上角可在“演示模式 / 真实后端”之间切换；
+- `/real`：三份真实文件的三方门限求交。
+
+启动时会自动选择：本地 `MYPSI_BIN` 或 `PSI_REMOTE` / `remote-backend.txt` 指向的远程真实后端可用 → 首页默认进真实模式；不可用 → 首页默认演示模式。两种模式始终都能在页面上切换。
+
+Windows 本地没有 Linux ELF 时，把 `remote-backend.example.txt` 复制成 `remote-backend.txt` 并写入自己的 Linux 服务地址（或设置 `PSI_REMOTE`），即可把真实协议请求转发到服务器。远程不可达时只影响真实模式，演示模式仍可用，`/real` 顶部会给出可点击的服务器地址。
+
 ## 真实数据（三方，`/real`）
 
-打开 `http://<服务器>:8787/real`，或从首页右上角「真实数据 Demo →」进入。
+打开 `http://<服务器>:8787/real`，或从首页右上角「真实数据（三方文件）→」进入。它与首页由同一个服务进程提供。
 
 - 三方各选一个 `.txt/.csv`，每行一个元素（CSV 请先抽成一列）；A 方是接收方，B/C 是发送方。
 - 样例区提供「载入样例并演示通过（k=200）」和「载入样例并演示拒绝（k=400）」：自动下载当前场景 A/B/C = 1,200/1,000/800 行样例（共同 300 条）、设置门限并启动真实三方协议，适合现场一键复现通过/⊥。
@@ -49,17 +73,16 @@ python server/app.py --port 8787
 限制与口径：
 
 - 单方 ≤ 131,072 条（代码里 `setNum` 只映射到 `2^17`），超了服务端直接拒绝。
-- 实测（本机、含 2.5s 进程启动）：`2^9≈3.5s`、`2^10≈4s`、`2^11≈14s`、`2^12≈55s`、`2^13≈3.5min`。
+- 参考实验机（含约 2.5s 进程启动）：`2^9≈3.5s`、`2^10≈4s`、`2^11≈14s`、`2^12≈55s`、`2^13≈3.5min`；不同机器需重新实测。
 - 低熵数据不要直接用裸 SHA-256：手机号/身份证可被字典攻击；生产要换 OPRF/加盐哈希（论文里的 OPRF 阶段）。
 - 三方进程都跑在同一台演示服务器上，这是“协议演示”，不是三方各自持机的真实部署。
 
 ## 在 IDEA 里运行
 
-当前 Codex 工作区（带 `PSI-Demo.iml`）已经配好运行项，直接用 IDEA 打开
-`C:\Users\Lenovo\Documents\Codex\2026-11-08\x20-1-x20-1-demo-2023`：
+直接用 IDEA 打开项目根目录（带 `PSI-Demo.iml` 的目录）。仓库不会提交 `.idea/`：
 
-- Windows：右上角运行配置选 **PSI Demo Server (Windows)**，点绿色三角。
-- Linux：选 **PSI Demo Server (Linux)**，会监听 `0.0.0.0:8787`。
+- Windows：运行配置选 **PSI Demo Server (Windows - Demo)**，或直接执行 `.\demo\start.ps1`。是否使用真实后端由本地 `demo/remote-backend.txt` / `PSI_REMOTE` 决定。
+- Linux：选 **PSI Demo Server (Linux - Real Data)**，会监听 `0.0.0.0:8787`。
 - 如果 IDEA 没立刻显示配置，执行一次 **File → Reload from Disk**，或重启 IDEA。
 - 运行后打开 <http://127.0.0.1:8787>；服务器上则打开 `http://<服务器IP>:8787`。
 
@@ -67,13 +90,15 @@ python server/app.py --port 8787
 
 Windows 本地 IDEA 不能直接执行服务器上的 Linux ELF。`MYPSI_BIN` 指向 Linux 路径只会在 Linux 上生效；Windows 上要把路径写成本地 `.exe` 也不成立，因为当前后端是 ELF。
 
+替代方案是设置 `PSI_REMOTE`：Windows 服务把 `live` / `file` 请求转发给 Linux 服务器，浏览器仍只访问本地 8787。这样一次启动就能同时演示 mock 和真实数据；远程不可达时自动回退 mock。
+
 推荐用 **IDEA Remote Development / JetBrains Gateway**：
 
 1. IDEA 欢迎页选择 **Remote Development → SSH → New Connection**。
-2. 主机填 `lys@59.70.82.96`，选择 SSH Key 或密码认证。
-3. 打开服务器目录 `/home/lys/psi-demo`。
-4. 选择运行配置 **PSI Demo Server (Linux)**，点绿色三角。
-5. 打开 `http://59.70.82.96:8787/real`。
+2. 主机填 `<服务器用户>@<服务器IP>`，选择 SSH Key 或密码认证。
+3. 打开服务器上的项目目录，例如 `/path/to/psidemo`。
+4. 选择运行配置 **PSI Demo Server (Linux - Real Data)**，点绿色三角。
+5. 打开 `http://<服务器IP>:8787/real`。
 
 这个 Linux 运行配置已经固定为：
 
@@ -81,12 +106,12 @@ Windows 本地 IDEA 不能直接执行服务器上的 Linux ELF。`MYPSI_BIN` �
 工作目录：<服务器项目>/demo
 解释器：  /usr/bin/python3
 命令：    python3 server/app.py --host 0.0.0.0 --port 8787
-MYPSI_BIN=/home/lys/psi-demo/myPSI-frontend-patched
+MYPSI_BIN=/path/to/myPSI-frontend-patched
 MYPSI_PATCHED=1
 MYPSI_TIMEOUT=300
 ```
 
-如果只想在 Windows 本地改代码、远程服务器保持运行，也可以继续使用现有 8787 服务；IDEA 只作为编辑器和 SSH 终端。Windows 的 `PSI Demo Server (Windows)` 仅用于 mock，不会启动真实 C++ 协议。
+如果只想在 Windows 本地改代码、远程服务器保持运行，也可以把 IDEA 只作为编辑器和 SSH 终端。Windows 的 `PSI Demo Server (Windows - Demo)` 通过 `PSI_REMOTE` 或 `remote-backend.txt` 桥接真实协议；两者都为空则只跑 mock。
 
 如果拿到的是 `PSI-Demo-*-custom-input.zip` 交付包（里面没有 `.idea`），
 按上面的终端命令 `python server/app.py --port 8787` 启动即可。
@@ -112,10 +137,11 @@ curl -s http://127.0.0.1:8787/api/selfcheck | python3 -m json.tool
 - `overall: fail`：有阻断项（前端文件缺失、Python 太旧、二进制不可执行），先修再上台。
 - 自检里会列出 `http://<服务器IP>:8787`；用 `--host 0.0.0.0` 启动时启动日志也会打印同样地址。
 
-Windows 上如果 `python` 指向 3.7，请用 3.12：
+Windows 上如果 `python` 指向 3.7，推荐直接使用启动脚本，它会自动寻找 Python 3.10+：
 
 ```powershell
-& 'C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\python.exe' server/app.py --port 8787
+cd demo
+.\start.ps1
 ```
 
 ## 0. 先准备依赖（只需一次）
@@ -200,7 +226,7 @@ bash demo/scripts/build_patched_linux.sh \
 
 脚本做四件事：换一份可移植的 `CMakeLists.txt`（原版硬编码作者机器的
 `/usr/local/lib/libgmp.a`）、用 IKNP + SimplestOT + libsodium 重编 libOTe、
-编译 myPSI、跑 450/550 双向自检。已经验证过（59.70.82.96，gcc-11）：
+编译 myPSI、跑 450/550 双向自检。参考环境（Ubuntu 20.04，gcc-11）：
 
 | 配置 | 结果 | C++ 内部总时间 | 页面整轮 wall |
 |---|---|---|---|
@@ -356,6 +382,6 @@ GET  /api/bench       # 读 data/bench.json（本机实测）
 
 - 当前真实后端是 Qin-3 三方协议（角色 0/1/2）；5 方、10 方仍是远期目标，需要先在 Linux 上跑通多进程/多端口。
 - 当前二进制最大 `2^17`；`2^18..2^20` 是论文基准，页面会明确标注“演示模拟”。
-- 当前二进制不读外部 CSV；补丁只拆 `common/threshold`，还没做文件输入。要做“真实业务名单”需要下一步把 `TpsiMain.cpp` 的生成循环替换成文件读取。
+- 真实文件模式已通过 `0002-real-data-input.patch` 支持哈希输入输出；浏览器负责把明文转成 32 位十六进制哈希，单方仍受 `2^17` 限制。生产环境要把裸 SHA-256 换成 OPRF/加盐哈希。
 - 页面上的“手动输入”只调用 Python 演示后端做集合求交，不代表真实 C++ PSI 已支持任意文件/名单；现场不要把本地求交耗时说成协议耗时。
 - 不接真实个人信息；所有数据为合成/演示数据。

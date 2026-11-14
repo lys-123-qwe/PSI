@@ -3,8 +3,7 @@
 来源：<https://github.com/Frankhtu/pTPSI.git>（main，代码提交 2023-08-03）
 论文：Feng-Hao Liu, En Zhang, Leiyong Qin. *Efficient Multiparty Probabilistic
 Threshold Private Set Intersection.* CCS '23.
-本目录内容与 `Desktop\privacy-computing-library-master\...\Efficient Multiparty
-Probabilistic Threshold Private Set Intersection\` **逐字节一致**（SHA256 已比对）。
+本目录内容来自上述官方仓库，并保留了来源说明；如需复核，请以官方仓库对应提交为准。
 
 ## 它是什么
 

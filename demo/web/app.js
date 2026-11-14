@@ -28,6 +28,7 @@ const state = {
   common: 12345,
   parties: 2,
   mode: "mock",
+  mockPreset: null,
   backend: { exists: false, patched: false, binary: "" },
   running: false,
   lastResult: null,
@@ -276,21 +277,40 @@ function syncPartyMode() {
   syncPartyCards();
 }
 
-function setMode(mode) {
+function backendFooterLabel() {
+  const backend = state.backend || {};
+  if (!backend.exists) return "backend: mock only";
+  return backend.source === "remote" ? "backend: remote live ready" : "backend: live ready";
+}
+
+function backendModeLabel() {
+  const backend = state.backend || {};
+  return backend.source === "remote" ? "远程真实后端" : "真实后端";
+}
+
+function setMode(mode, options = {}) {
+  const silent = Boolean(options.silent);
   const wasLive = state.mode === "live";
+  if (state.mode === "mock" && mode === "live") {
+    state.mockPreset = { nLog: state.nLog, threshold: state.threshold, common: state.common };
+  } else if (state.mode === "live" && mode === "mock" && state.mockPreset) {
+    state.nLog = state.mockPreset.nLog;
+    state.threshold = state.mockPreset.threshold;
+    state.common = state.mockPreset.common;
+  }
   state.mode = mode;
   if (mode === "live" && state.dataMode === "custom") {
     state.dataMode = "generated";
-    toast("已切回自动生成模式；真实文件请走右上角「真实数据 Demo」");
+    if (!silent) toast("已切回自动生成模式；真实文件请走右上角「真实数据 Demo」");
   }
   document.querySelectorAll("#modeToggle button").forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === mode);
   });
-  $("modePill").textContent = mode === "live" ? "真实后端" : "演示模式";
-  $("footerBackend").textContent = `backend: ${mode === "live" ? "live" : "mock"}`;
+  $("modePill").textContent = mode === "live" ? backendModeLabel() : "演示模式";
+  $("footerBackend").textContent = backendFooterLabel();
   if (mode === "live" && state.nLog > 17) {
     state.nLog = 17;
-    toast("真实后端当前最大支持 2^17，已切到 131,072");
+    if (!silent) toast("真实后端当前最大支持 2^17，已切到 131,072");
   }
   if (mode === "live" && !wasLive) {
     let adjusted = false;
@@ -302,7 +322,7 @@ function setMode(mode) {
       state.threshold = 100;
       adjusted = true;
     }
-    if (adjusted) toast("现场真实执行已切到 2^11 / k=100（约 8 秒）；2^20 为论文口径");
+    if (adjusted && !silent) toast("现场真实执行已切到 2^11 / k=100（约 8 秒）；2^20 为论文口径");
   }
   updateDataModeUI();
   syncPartyMode();
@@ -319,6 +339,14 @@ function updateBackendNote() {
   if (state.mode === "mock") {
     note.classList.remove("warn");
     note.textContent = "演示模式：时间按 CCS'23 论文锚定估算，适合讲流程和门限翻转；不依赖 Linux 后端。";
+    return;
+  }
+  if (state.backend.source === "remote") {
+    note.classList.remove("warn");
+    const patchNote = state.backend.patched
+      ? "已启用独立实际交集参数，可演示“未达到门限”。"
+      : "远程二进制未打补丁，只能演示“达到门限”。";
+    note.textContent = `远程真实后端：${state.backend.remote_url || state.backend.binary}。本机负责界面，协议在服务器执行；演示模式仍可随时切回。${patchNote}`;
     return;
   }
   if (!state.backend.exists) {
@@ -401,6 +429,11 @@ function chooseScenario(id) {
   state.threshold = defaults.threshold;
   state.common = defaults.common;
   state.parties = defaults.parties;
+  if (state.mode === "live") {
+    state.mockPreset = { nLog: defaults.n_log, threshold: defaults.threshold, common: defaults.common };
+    state.nLog = Math.min(state.nLog, 11);
+    state.threshold = Math.min(state.threshold, 100);
+  }
   $("setupIcon").textContent = state.scenario.icon;
   $("setupScenarioName").textContent = state.scenario.name;
   $("setupTagline").textContent = state.scenario.tagline;
@@ -655,7 +688,7 @@ async function startRun() {
     return;
   }
   if (state.mode === "live" && !state.backend.exists) {
-    toast("未配置真实后端，已切回演示模式");
+    toast("真实后端未就绪（本地 MYPSI_BIN 或 PSI_REMOTE），已切回演示模式");
     setMode("mock");
   }
   if (state.mode === "live" && state.nLog > 17) {
@@ -696,7 +729,7 @@ async function startRun() {
   const sizeMeta = custom
     ? `A ${fmt(sizeA)} / B ${fmt(sizeB)}（手动）`
     : `2^${state.nLog}（${fmt(2 ** state.nLog)}）`;
-  state.runMetaBase = `${live ? "真实后端" : "演示模拟"} · ${sizeMeta} · 门限 k=${fmt(runThreshold)} · ${state.parties} 方`;
+  state.runMetaBase = `${live ? backendModeLabel() : "演示模拟"} · ${sizeMeta} · 门限 k=${fmt(runThreshold)} · ${state.parties} 方`;
   $("runMeta").textContent = state.runMetaBase;
   $("cancelBtn").textContent = live ? "取消（真实终止后端）" : "取消（回到参数）";
   switchScreen("running");
@@ -886,8 +919,13 @@ function benchSeconds(item) {
   return Number(item.total_s != null ? item.total_s : (item.wall_s || 0));
 }
 
+function benchLabel(bench) {
+  return bench && bench.source === "sample" ? "示例实测" : "本机实测";
+}
+
 async function renderBenchmark() {
   const bench = await loadBench();
+  const measuredLabel = benchLabel(bench);
   const rows = [
     { name: "旧 TPSI [20]", seconds: 778.9, note: "2^11 集合（论文）" },
     { name: "旧拼车 TPSI [18]", seconds: 5627, note: "2^12 集合（论文）" },
@@ -899,7 +937,7 @@ async function renderBenchmark() {
     if (!seconds) return;
     const comm = item.comm_mb == null ? "" : ` · ${Number(item.comm_mb).toFixed(1)}MB`;
     rows.push({
-      name: `本机 2^${item.n}`,
+      name: `${bench.source === "sample" ? "示例" : "本机"} 2^${item.n}`,
       seconds,
       note: `k=${fmt(item.k)}${comm}`,
       measured: true,
@@ -935,7 +973,8 @@ async function renderBenchmark() {
     const system = [bench.os, bench.kernel].filter(Boolean).map((value) => escapeHtml(value)).join(" / ");
     const systemPart = system ? ` · ${system}` : "";
     const patchPart = bench.patched == null ? "" : ` · ${bench.patched ? "已打补丁" : "原版二进制"}`;
-    meta.innerHTML = `本机实测 ${bench.cases.length} 组：${escapeHtml(bench.host || "本机")} · ${bench.nproc || "?"} 核${cpu} · ${bench.mem_gb || "?"} GB${systemPart}${when}${patchPart}；串行单次运行，与论文 32 线程不可直接横比。`;
+    const note = bench.note ? ` ${escapeHtml(bench.note)}` : "";
+    meta.innerHTML = `${measuredLabel} ${bench.cases.length} 组：${escapeHtml(bench.host || "本机")} · ${bench.nproc || "?"} 核${cpu} · ${bench.mem_gb || "?"} GB${systemPart}${when}${patchPart}；串行单次运行，与论文 32 线程不可直接横比。${note}`;
   } else {
     meta.classList.add("warn");
     meta.textContent = "尚无本机实测：在 Linux 上运行 bash demo/scripts/bootstrap_linux.sh --src <源码> --bench 生成 data/bench.json，刷新本页即可接入；当前图表只有论文数字。";
@@ -953,7 +992,7 @@ async function renderBenchmark() {
     const comm = item.comm_mb == null ? "—" : `${Number(item.comm_mb).toFixed(1)} MB`;
     const inter = item.intersection == null ? "—" : fmt(item.intersection);
     table.push([
-      "本机实测",
+      measuredLabel,
       `2^${item.n}，k=${item.k}`,
       `墙钟 ${Number(item.wall_s || 0).toFixed(2)}s · 协议总 ${total} · ${comm} · 交集 ${inter}`,
       escapeHtml(bench.host || "本机"),
@@ -967,11 +1006,13 @@ function benchmarkSummary(bench) {
   lines.push("论文口径：2^20 / k=8000，在线 7.36s（半诚实）、9.74s（恶意）；CCS '23 表 7.7/7.8，LAN、32 线程。");
   if (bench && bench.available) {
     const cpu = bench.cpu ? ` · ${bench.cpu}` : "";
-    lines.push(`本机：${bench.host || "本机"} · ${bench.nproc || "?"} 核 · ${bench.mem_gb || "?"} GB${cpu}`);
+    const label = benchLabel(bench);
+    lines.push(`${label}：${bench.host || "本机"} · ${bench.nproc || "?"} 核 · ${bench.mem_gb || "?"} GB${cpu}`);
     if (bench.generated_at) lines.push(`生成时间：${bench.generated_at}`);
     const system = [bench.os, bench.kernel].filter(Boolean).join(" / ");
     if (system) lines.push(`系统：${system}`);
     if (bench.patched != null) lines.push(`补丁：${bench.patched ? "已打补丁（门限/实际交集分离）" : "原版二进制"}`);
+    if (bench.note) lines.push(`说明：${bench.note}`);
     (bench.cases || []).forEach((item) => {
       const total = item.total_s == null ? "—" : `${Number(item.total_s).toFixed(2)}s`;
       const comm = item.comm_mb == null ? "—" : `${Number(item.comm_mb).toFixed(1)} MB`;
@@ -1011,7 +1052,7 @@ async function downloadBench() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
-  toast("已下载本机实测 bench.json");
+  toast("已下载 bench 数据");
 }
 
 function conclusionText(result) {
@@ -1219,7 +1260,8 @@ function bindEvents() {
   document.querySelectorAll("#modeToggle button").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.mode === "live" && !state.backend.exists) {
-        toast("未配置 MYPSI_BIN；先看演示模式，Linux 环境就绪后再切实后端");
+        toast("真实后端未就绪：本地设置 MYPSI_BIN，或设置 PSI_REMOTE 指向 Linux 服务器");
+        return;
       }
       setMode(button.dataset.mode);
     });
@@ -1292,23 +1334,40 @@ async function boot() {
       /* older server without /api/version */
     }
     renderScenarios();
-    setMode("mock");
-    const versionTag = state.version && state.version.version ? ` · v${state.version.version}` : "";
-    $("footerBackend").textContent = `backend: ${config.backend.exists ? "live ready" : "mock only"}${versionTag}`;
-    if (state.version && state.version.urls) $("footerBackend").title = state.version.urls.join(" / ");
-    if (!config.backend.exists) {
-      $("backendNote").classList.add("warn");
-      $("backendNote").textContent = "当前未配置真实后端，使用演示模式；Linux 上设置 MYPSI_BIN 后可切换真实后端。";
-    }
     const params = new URLSearchParams(window.location.search);
     const autoScenario = params.get("scenario");
     const autoScreen = params.get("screen");
-    if (params.get("mode") === "live" && config.backend.exists) setMode("live");
+    const requestedMode = (params.get("mode") || "").toLowerCase();
+
+    if (autoScenario && scenarioById(autoScenario)) chooseScenario(autoScenario);
+
+    let desiredMode = "mock";
+    if (requestedMode === "live") {
+      desiredMode = state.backend.exists ? "live" : "mock";
+    } else if (requestedMode === "mock") {
+      desiredMode = "mock";
+    } else if (state.backend.exists) {
+      // One launch serves both modes: start on the real protocol when it is
+      // available, and keep the toggle for the paper-anchored mock demo.
+      desiredMode = "live";
+    }
+    setMode(desiredMode, { silent: true });
+
     if (autoScenario && scenarioById(autoScenario)) {
-      chooseScenario(autoScenario);
-      if (params.get("threshold")) state.threshold = Number(params.get("threshold"));
-      if (params.get("common")) state.common = Number(params.get("common"));
+      if (params.get("threshold") !== null) state.threshold = Number(params.get("threshold"));
+      if (params.get("common") !== null) state.common = Number(params.get("common"));
       syncControls();
+    }
+
+    const versionTag = state.version && state.version.version ? ` · v${state.version.version}` : "";
+    $("footerBackend").textContent = `${backendFooterLabel()}${versionTag}`;
+    if (state.version && state.version.urls) $("footerBackend").title = state.version.urls.join(" / ");
+    if (!state.backend.exists) {
+      $("backendNote").classList.add("warn");
+      $("backendNote").textContent = state.backend.remote_configured
+        ? `远程真实后端不可用（${state.backend.remote_error || "未配置 MYPSI_BIN"}）；当前使用演示模式。`
+        : "当前未配置真实后端，使用演示模式；Windows 可设置 PSI_REMOTE，Linux 可设置 MYPSI_BIN。";
+      if (requestedMode === "live") toast("真实后端未就绪，已使用演示模式；配置后刷新即可切到真实协议");
     }
     if (autoScreen === "running" || autoScreen === "result") {
       startRun();

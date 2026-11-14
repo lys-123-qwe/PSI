@@ -9,6 +9,8 @@ import sys
 import time
 from typing import Any
 
+import remote
+from backends import effective_backend
 from orchestrator import backend_status, bench, progress
 
 APP_NAME = "PSI Lab Demo"
@@ -60,7 +62,7 @@ def asset_stamp() -> str | None:
     return _fmt_time(latest) if latest else None
 
 
-def server_info(host: str, port: int) -> dict[str, Any]:
+def server_info(host: str, port: int, backend: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
@@ -72,7 +74,7 @@ def server_info(host: str, port: int) -> dict[str, Any]:
         "port": port,
         "urls": lan_urls(host, port),
         "asset_stamp": asset_stamp(),
-        "backend": backend_status(),
+        "backend": backend if backend is not None else backend_status(),
     }
 
 
@@ -98,21 +100,40 @@ def selfcheck(host: str, port: int) -> dict[str, Any]:
         f"Python {platform.python_version()}（需要 3.8+）",
     ))
 
-    backend = backend_status()
+    backend = effective_backend()
     if backend["exists"]:
-        executable = True
-        if os.name == "posix":
-            executable = os.access(backend["binary"], os.X_OK)
-        checks.append(_check(
-            "ok" if executable else "fail",
-            "真实后端",
-            f"{backend['binary']}（{backend.get('binary_mtime') or '时间未知'}，可执行={executable}）",
-        ))
+        if backend.get("source") == "remote":
+            checks.append(_check(
+                "ok",
+                "真实后端",
+                f"远程 {backend.get('remote_url') or '未知地址'}（{backend.get('binary') or '二进制未知'}）",
+            ))
+        else:
+            executable = True
+            if os.name == "posix":
+                executable = os.access(backend["binary"], os.X_OK)
+            checks.append(_check(
+                "ok" if executable else "fail",
+                "真实后端",
+                f"{backend['binary']}（{backend.get('binary_mtime') or '时间未知'}，可执行={executable}）",
+            ))
     else:
         checks.append(_check(
             "warn",
             "真实后端",
-            "未设置 MYPSI_BIN，当前只能跑 mock。Linux 上 export MYPSI_BIN=/path/to/frontend 后重启服务。",
+            backend.get("note") or "未设置 MYPSI_BIN，当前只能跑 mock。",
+        ))
+
+    if remote.configured() and backend.get("source") != "remote":
+        remote_snapshot = remote.status()
+        checks.append(_check(
+            "ok" if remote_snapshot.get("reachable") else "warn",
+            "远程桥接",
+            (
+                f"PSI_REMOTE={remote_snapshot.get('url')} 可达"
+                if remote_snapshot.get("reachable")
+                else f"PSI_REMOTE={remote_snapshot.get('url')} 不可达：{remote_snapshot.get('error') or '未知原因'}"
+            ),
         ))
 
     bench_data = bench()
@@ -152,5 +173,5 @@ def selfcheck(host: str, port: int) -> dict[str, Any]:
         "overall": "fail" if fail else ("warn" if warn else "ok"),
         "checked_at": _fmt_time(time.time()),
         "checks": checks,
-        "server": server_info(host, port),
+        "server": server_info(host, port, backend=backend),
     }

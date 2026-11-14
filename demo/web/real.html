@@ -59,6 +59,14 @@
     .sample-action.reject { color: #ffaaaa; border-color: rgba(255, 120, 120, 0.32); background: rgba(255, 120, 120, 0.07); }
     .sample-action:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
     .sample-actions .hint { flex-basis: 100%; margin: 0; }
+    .backend-banner {
+      margin: 0 0 18px; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--line);
+      background: rgba(8, 21, 35, 0.62); color: var(--muted); font-size: 12px; line-height: 1.75;
+    }
+    .backend-banner strong { color: var(--text); margin-right: 4px; }
+    .backend-banner.ok { border-color: rgba(56, 225, 208, 0.36); background: rgba(56, 225, 208, 0.08); }
+    .backend-banner.warn { border-color: rgba(255, 190, 90, 0.4); background: rgba(255, 190, 90, 0.08); color: #ffd9a0; }
+    .backend-banner a { color: var(--cyan); }
     .decision-card.accept .decision-badge { color: var(--cyan); border-color: rgba(56, 225, 208, 0.4); }
     .decision-card.reject .decision-badge { color: #ff9b9b; border-color: rgba(255, 120, 120, 0.35); }
     @media (max-width: 980px) { .real-grid { grid-template-columns: 1fr; } .real-controls .primary { margin-left: 0; } }
@@ -89,6 +97,8 @@
           <p class="scenario-real-note" id="scenarioRealNote">选择一个业务场景后，A/B/C 角色与门限含义会一起更新。</p>
         </div>
       </section>
+
+      <div class="backend-banner" id="backendBanner" role="status">正在检查真实后端…</div>
 
       <section class="panel" id="setupPanel">
         <div class="panel-label">STEP 01 · 选择三份集合</div>

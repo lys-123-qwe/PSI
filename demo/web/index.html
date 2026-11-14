@@ -25,7 +25,7 @@
         <button data-target="result"><i>4</i>结果</button>
         <button data-target="benchmark"><i>5</i>性能</button>
       </nav>
-      <a class="ghost ghost-small" href="/real">真实数据 Demo →</a>
+      <a class="ghost ghost-small" href="/real" title="用三份真实文件跑三方门限求交">真实数据（三方文件）→</a>
       <div class="mode-pill" id="modePill">演示模式</div>
     </header>
 
@@ -41,6 +41,7 @@
             <div><strong>k</strong><span>交集数量门限</span></div>
           </div>
           <p class="hero-note">首屏数字出自 CCS '23 论文表 7.7（2^20、k=8000、32 线程 LAN、半诚实），不是本机实测；本机实测见第 5 步“性能”。</p>
+          <p class="hero-note mode-note">一次启动，两种模式都在：本页切换「演示模式 / 真实后端」；右上角「真实数据」用三份文件跑三方门限求交。后端不可用时自动停在演示模式。</p>
         </div>
         <div class="section-head">
           <h2>选择演示场景</h2>
@@ -302,7 +303,7 @@
             <div class="panel-label">百万级 / 门限 TPSI 的时间对比（对数刻度）</div>
             <div class="bench-legend">
               <span><i class="dot paper"></i>论文口径</span>
-              <span><i class="dot measured"></i>本机实测</span>
+              <span><i class="dot measured"></i>实测 / 示例数据</span>
             </div>
             <div class="bench-meta" id="benchMeta">正在读取本机实测数据…</div>
             <div class="bench-chart" id="benchChart"></div>

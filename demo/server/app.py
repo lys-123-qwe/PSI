@@ -15,8 +15,10 @@ ROOT = os.path.dirname(HERE)
 WEB = os.path.join(ROOT, "web")
 sys.path.insert(0, HERE)
 
+import remote  # noqa: E402
+from backends import effective_backend  # noqa: E402
 from diagnostics import APP_VERSION, selfcheck, server_info  # noqa: E402
-from orchestrator import backend_status, bench, cancel, progress, run  # noqa: E402
+from orchestrator import bench, cancel, progress, run  # noqa: E402
 from scenarios import DISABLED_SCENARIOS, SCENARIOS, default_config  # noqa: E402
 
 MAX_BODY = 48 * 1024 * 1024  # 3 x 131,072 hashes fit comfortably
@@ -32,7 +34,8 @@ def _scenario_payload() -> dict:
             for key, scenario in SCENARIOS.items()
         ],
         "disabled": DISABLED_SCENARIOS,
-        "backend": backend_status(),
+        "backend": effective_backend(),
+        "remote": remote.summary(),
     }
 
 
@@ -82,23 +85,31 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, _scenario_payload())
             return
         if path == "/api/health":
-            info = server_info(self.server.demo_host, self.server.demo_port)
+            info = server_info(self.server.demo_host, self.server.demo_port, backend=effective_backend())
             self._json(200, {
                 "ok": True,
                 "version": info["version"],
                 "uptime_s": info["uptime_s"],
                 "backend": info["backend"],
-                "active": bool(progress().get("active")),
+                "remote": remote.summary(),
+                "active": bool(progress().get("active")) or remote.is_inflight(),
             })
             return
         if path == "/api/version":
-            self._json(200, server_info(self.server.demo_host, self.server.demo_port))
+            self._json(200, server_info(self.server.demo_host, self.server.demo_port, backend=effective_backend()))
             return
         if path == "/api/selfcheck":
             self._json(200, selfcheck(self.server.demo_host, self.server.demo_port))
             return
         if path == "/api/progress":
-            self._json(200, progress())
+            if remote.is_inflight():
+                try:
+                    snapshot = remote.proxy_progress()
+                except RuntimeError as exc:
+                    snapshot = {"active": False, "remote_error": str(exc)}
+            else:
+                snapshot = progress()
+            self._json(200, snapshot)
             return
         if path == "/api/bench":
             self._json(200, bench())
@@ -127,7 +138,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path == "/api/cancel":
-            self._json(200, cancel())
+            if remote.is_inflight():
+                try:
+                    payload = remote.proxy_cancel()
+                except RuntimeError as exc:
+                    payload = {"cancelled": False, "message": str(exc)}
+            else:
+                payload = cancel()
+            self._json(200, payload)
             return
         if path != "/api/run":
             self._json(404, {"error": "未知接口"})
@@ -153,7 +171,12 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 self._json(400, {"error": "请求体必须是 JSON 对象"})
                 return
-            result = run(payload)
+            requested = str(payload.get("mode", "")).lower()
+            if requested in {"live", "file"}:
+                backend = effective_backend()
+                result = remote.proxy_run(payload) if backend.get("source") == "remote" else run(payload)
+            else:
+                result = run(payload)
             self._json(200, result)
         except json.JSONDecodeError:
             self._json(400, {"error": "请求体不是合法 JSON"})
@@ -183,6 +206,8 @@ def main() -> None:
     for url in info["urls"]:
         print(f"open: {url}", flush=True)
     print(f"backend: {info['backend']}", flush=True)
+    if remote.configured():
+        print(f"remote: {remote.remote_url()}", flush=True)
     print(f"front-end: {info['asset_stamp'] or 'unknown'}", flush=True)
     try:
         httpd.serve_forever()

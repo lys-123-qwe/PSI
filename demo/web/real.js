@@ -11,6 +11,7 @@ const state = {
   poller: null,
   result: null,
   backend: { exists: false, patched: false },
+  remote: { configured: false, url: "", reachable: false, error: "" },
   scenarios: [],
   scenario: null,
   sampleBusy: false,
@@ -52,6 +53,65 @@ function scenarioExampleText(scenario) {
   if (!scenario || !scenario.example) return "";
   const example = scenario.example;
   return `业务示例：${scenario.data_a} ${fmt(example.size_a)} / ${scenario.data_b} ${fmt(example.size_b)} / ${scenario.data_c} ${fmt(example.size_c)} → 共同 ${fmt(example.intersection)}；${scenario.threshold_label} = ${fmt(example.threshold)} 时通过。示例为合成数据，不代表本机实测。`;
+}
+
+function renderBackendBanner() {
+  const el = $("backendBanner");
+  if (!el) return;
+  const backend = state.backend || {};
+  const remote = state.remote || {};
+  el.textContent = "";
+  el.className = "backend-banner";
+  const strong = document.createElement("strong");
+
+  if (backend.exists) {
+    el.classList.add("ok");
+    if (backend.source === "remote") {
+      strong.textContent = "远程真实后端已就绪";
+      el.appendChild(strong);
+      const detail = document.createElement("span");
+      detail.textContent = ` · ${backend.remote_url || backend.binary}。浏览器本地做 SHA-256，只有哈希发往服务器；首页的演示模式也仍可使用。`;
+      el.appendChild(detail);
+    } else {
+      strong.textContent = backend.patched ? "本机真实后端已就绪（已打补丁）" : "本机真实后端已就绪（未打补丁）";
+      el.appendChild(strong);
+      const detail = document.createElement("span");
+      detail.textContent = ` · ${backend.binary || "MYPSI_BIN"}${backend.patched ? "，可演示未达到门限" : "，只能演示达到门限"}。首页的演示模式也仍可使用。`;
+      el.appendChild(detail);
+    }
+    return;
+  }
+
+  el.classList.add("warn");
+  strong.textContent = "当前只有演示模式可用";
+  el.appendChild(strong);
+  const detail = document.createElement("span");
+  if (remote.configured) {
+    detail.textContent = ` · 远程 ${remote.url || ""} 不可达：${remote.error || "未知原因"}。${backend.note || ""}`;
+  } else {
+    detail.textContent = " · 本机没有 Linux 真实二进制。";
+  }
+  el.appendChild(detail);
+
+  const linkUrl = remote.configured && remote.reachable ? (backend.public_url || remote.url) : "";
+  if (linkUrl) {
+    const prefix = document.createElement("span");
+    prefix.textContent = " 真实数据请打开 ";
+    el.appendChild(prefix);
+    const link = document.createElement("a");
+    link.href = `${String(linkUrl).replace(/\/$/, "")}/real`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = link.href;
+    el.appendChild(link);
+    const tail = document.createElement("span");
+    tail.textContent = "（或在服务器上启动 PSI Demo Server (Linux - Real Data)）。";
+    el.appendChild(tail);
+  } else {
+    const tail = document.createElement("span");
+    tail.textContent = " 请在 Linux 服务器设置 MYPSI_BIN，或设置 PSI_REMOTE 指向已配好的服务器后重启。";
+    el.appendChild(tail);
+  }
 }
 
 function renderScenarioTabs() {
@@ -187,7 +247,7 @@ async function loadFile(role, file) {
 async function loadSamplesAndRun(threshold) {
   if (state.sampleBusy || state.busy) return;
   if (!state.backend.exists) {
-    toast("后端未配置：请设置 MYPSI_BIN");
+    toast("真实后端未就绪：请检查 PSI_REMOTE 或 MYPSI_BIN");
     return;
   }
   const scenario = state.scenario;
@@ -351,7 +411,7 @@ async function run() {
     return;
   }
   if (!state.backend.exists) {
-    toast("后端未配置：请设置 MYPSI_BIN");
+    toast("真实后端未就绪：请检查 PSI_REMOTE 或 MYPSI_BIN");
     return;
   }
   const cap = capacity();
@@ -598,16 +658,19 @@ async function boot() {
     const response = await fetch("/api/config", { cache: "no-store" });
     const config = await response.json();
     state.backend = config.backend || state.backend;
+    state.remote = config.remote || state.remote;
     state.scenarios = (config.scenarios || []).filter((scenario) => ["ad", "ride", "gene"].includes(scenario.id));
     renderScenarioTabs();
     const requested = new URLSearchParams(window.location.search).get("scenario") || "ad";
     applyScenario(requested, false);
     if (!state.backend.exists) {
-      $("modePill").textContent = "未配置后端";
-      $("realMeta").innerHTML = "未检测到 <b>MYPSI_BIN</b>，页面可以选文件但无法运行。请在服务器设置二进制路径后重启服务。";
+      $("modePill").textContent = "仅演示模式";
+    } else if (state.backend.source === "remote") {
+      $("modePill").textContent = "远程真实后端";
     } else if (!state.backend.patched) {
       $("modePill").textContent = "后端未打补丁";
     }
+    renderBackendBanner();
     renderMeta();
   } catch (error) {
     toast(`读取配置失败：${error.message}`);

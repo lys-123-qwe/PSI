@@ -382,6 +382,9 @@ button.ghost:hover { color: var(--text); border-color: var(--line-strong); }
   margin-top: 14px; max-width: 760px; color: var(--muted); font-size: 11px; line-height: 1.7;
   border-left: 2px solid rgba(255, 200, 87, 0.55); padding-left: 10px;
 }
+.hero-note.mode-note {
+  margin-top: 10px; border-left-color: rgba(56, 225, 208, 0.55); color: #a9d9d4;
+}
 
 .run-error {
   margin-top: 18px; padding: 18px 20px; border-radius: 16px;
