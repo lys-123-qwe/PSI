@@ -412,6 +412,13 @@ button.ghost:hover { color: var(--text); border-color: var(--line-strong); }
   color: var(--muted); background: rgba(62, 224, 143, 0.06); border: 1px solid rgba(62, 224, 143, 0.18);
 }
 .bench-meta.warn { color: #ffd79a; background: rgba(255, 200, 87, 0.07); border-color: rgba(255, 200, 87, 0.22); }
+.paper-bench {
+  margin-top: 10px; padding: 12px 14px; border-radius: 10px; font-size: 11px; line-height: 1.65;
+  color: var(--muted); background: rgba(56, 225, 208, 0.05); border: 1px solid rgba(56, 225, 208, 0.16);
+}
+.paper-bench b { color: var(--cyan); font-size: 16px; }
+.paper-bench span { display: block; margin-top: 4px; }
+.paper-bench.warn { color: #ffd79a; background: rgba(255, 200, 87, 0.07); border-color: rgba(255, 200, 87, 0.22); }
 .bench-row.measured .bench-fill { background: linear-gradient(90deg, rgba(62, 224, 143, 0.55), var(--green)); }
 .bench-row.measured.highlight .bench-fill { background: linear-gradient(90deg, var(--cyan-2), var(--cyan)); }
 

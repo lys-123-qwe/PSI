@@ -19,6 +19,7 @@ import remote  # noqa: E402
 from backends import effective_backend  # noqa: E402
 from diagnostics import APP_VERSION, selfcheck, server_info  # noqa: E402
 from orchestrator import bench, cancel, progress, run  # noqa: E402
+from paper import run_paper_gs  # noqa: E402
 from scenarios import DISABLED_SCENARIOS, SCENARIOS, default_config  # noqa: E402
 
 MAX_BODY = 48 * 1024 * 1024  # 3 x 131,072 hashes fit comfortably
@@ -113,6 +114,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/bench":
             self._json(200, bench())
+            return
+        if path == "/api/paper-bench":
+            if remote.configured():
+                try:
+                    self._json(200, remote.proxy_paper_bench())
+                except RuntimeError as exc:
+                    self._json(200, {"available": False, "error": str(exc)})
+            else:
+                self._json(200, run_paper_gs())
             return
         if path == "/api/defaults":
             query = parse_qs(parsed.query)

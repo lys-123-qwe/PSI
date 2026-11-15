@@ -195,6 +195,10 @@ namespace osuCrypto
         gTimer.setTimePoint("Init.params");
 
         numHashFunctions = 128;
+        if (const char* h = std::getenv("MYPSI_HASHES")) {
+            int v = std::atoi(h);
+            if (v > 0) numHashFunctions = (u64)v;
+        }
         mBfBitCount = numHashFunctions * 2 * n;
 
         mHashs.resize(numHashFunctions);
@@ -392,6 +396,8 @@ namespace osuCrypto
             sshares[i] = mask;
             indexs[i] = mask1;
         }
+        clock_t maskEnd = clock();
+        std::cout << "掩码计算阶段时间 = " << double(maskEnd - shareEnd) / CLOCKS_PER_SEC << "s" << std::endl;
 
 
         bool result;
@@ -406,6 +412,8 @@ namespace osuCrypto
         }
 
         result = gao_interpolate(res, err, vec_indexs, vec_sshares, threshold, input_size);
+        clock_t interpEnd = clock();
+        std::cout << "插值/解码阶段时间 = " << double(interpEnd - maskEnd) / CLOCKS_PER_SEC << "s" << std::endl;
         std::cout << "this is result::" << result << std::endl;
         gTimer.setTimePoint("online.sharesInterpolated");
         if (result)
@@ -436,12 +444,12 @@ namespace osuCrypto
 
             //------
             ZZ_p y, xx;
+            vec_ZZ_p evals;
+            fastpoly::multipoint_eval(evals, f, vec_indexs);
             //for (u64 i = start; i < end; ++i)
             for (u64 i = start; i < end - (input_size - threshold) / 2; ++i)
             {
-                ZZFromBytes(x, (u8*)&indexs[i], sizeof(block));
-                xx = to_ZZ_p(x);
-                y = func1(f, xx);
+                y = evals[i];
                 NTL::BytesFromZZ((u8*)&yy, rep(y), sizeof(block));
                 if (eq(sshares[i], yy))
                     localIntersection.push_back(i);
@@ -464,6 +472,8 @@ namespace osuCrypto
         {
             std::cout << "Not reach threshold value" << std::endl;
         }
+        clock_t verifyEnd = clock();
+        std::cout << "校验/求交阶段时间 = " << double(verifyEnd - interpEnd) / CLOCKS_PER_SEC << "s" << std::endl;
         // 交集计算阶段
         clock_t comIsEnd = clock();
         std::cout << "交集计算阶段时间 = " << double(comIsEnd - shareEnd) / CLOCKS_PER_SEC << "s" << std::endl;

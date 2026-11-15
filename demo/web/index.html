@@ -293,6 +293,7 @@
             <h1>为什么说它快</h1>
           </div>
           <div class="head-actions">
+            <button class="ghost" id="paperBenchBtn">跑官方 GS 2^20</button>
             <button class="ghost" id="benchCopyBtn">复制实测摘要</button>
             <button class="ghost" id="benchDownloadBtn">下载 bench.json</button>
             <button class="ghost" id="benchBackBtn">← 返回结果</button>
@@ -306,9 +307,11 @@
               <span><i class="dot measured"></i>实测 / 示例数据</span>
             </div>
             <div class="bench-meta" id="benchMeta">正在读取本机实测数据…</div>
+            <div class="paper-bench" id="paperBenchResult">官方 GS 阶段基准：点击右上角按钮，在服务器上跑 CCS '23 `gs.cpp` 的 2^20 / 8000 轮；只代表 GS 阶段，不等于完整 pTPSI。</div>
             <div class="bench-chart" id="benchChart"></div>
             <div class="bench-callout">2023 pTPSI 比旧 TPSI [20] 快约 <b>106×</b>，比旧拼车 [18] 快约 <b>765×</b>。<span>不同论文设置不同，仅作数量级参考。</span></div>
             <p class="hint">不同论文的硬件、参与方、安全模型不同，不能直接横比；图中只用于说明数量级。</p>
+            <p class="hint">真实后端调用 Qin-3 三方实现（myPSI-Qin-3）；论文 2^20 / 7.36s 来自 Frankhtu/pTPSI 的 2-party GS + SPDZ 协议。两者不是同一份代码，页面已分开标注。</p>
           </div>
           <div class="panel paper-panel">
             <div class="panel-label">两篇优先论文</div>

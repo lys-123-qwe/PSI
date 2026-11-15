@@ -170,6 +170,18 @@ void TPsiSend(int flag, int setNum, int threshold, int commonIn)
     {
         mNumItems = 131072;
     }
+    else if (int(setNum) == 18)
+    {
+        mNumItems = 262144;
+    }
+    else if (int(setNum) == 19)
+    {
+        mNumItems = 524288;
+    }
+    else if (int(setNum) == 20)
+    {
+        mNumItems = 1048576;
+    }
     else
     {
         mNumItems = 512;
@@ -323,6 +335,18 @@ void TPsiRecv(int setNum, int threshold, int commonIn)
     else if (int(setNum) == 17)
     {
         mNumItems = 131072;
+    }
+    else if (int(setNum) == 18)
+    {
+        mNumItems = 262144;
+    }
+    else if (int(setNum) == 19)
+    {
+        mNumItems = 524288;
+    }
+    else if (int(setNum) == 20)
+    {
+        mNumItems = 1048576;
     }
     else
     {

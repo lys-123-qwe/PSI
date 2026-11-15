@@ -1001,6 +1001,33 @@ async function renderBenchmark() {
   $("benchTable").innerHTML = `<thead><tr><th>工作</th><th>设置</th><th>结果</th><th>出处</th></tr></thead><tbody>${table.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>`;
 }
 
+async function runPaperBench() {
+  const box = $("paperBenchResult");
+  const btn = $("paperBenchBtn");
+  if (!box || !btn) return;
+  btn.disabled = true;
+  box.className = "paper-bench";
+  box.textContent = "正在服务器上运行官方 GS 基准（2^20 / 8000 轮，约 2 秒）…";
+  try {
+    const response = await fetch("/api/paper-bench", { cache: "no-store" });
+    const payload = await response.json();
+    if (!payload.available) {
+      box.classList.add("warn");
+      box.textContent = `官方 GS 基准不可用：${payload.error || "未知原因"}${payload.hint ? `。${payload.hint}` : ""}`;
+      return;
+    }
+    box.innerHTML = `<b>2^20 GS 阶段：${Number(payload.gs_s).toFixed(2)}s</b>
+      <span>官方 gs.cpp，${fmt(payload.n)} 元素 / ${fmt(payload.rounds)} 轮 / ${payload.threads} 线程；端到端 ${Number(payload.wall_s).toFixed(2)}s。</span>
+      <span>论文 pSize-Test 为 ${Number(payload.paper_gs_test_s).toFixed(2)}s，完整 pTPSI 为 ${Number(payload.paper_total_s).toFixed(2)}s；本结果只跑 GS 阶段，不含 F-count/SPDZ 与 PSI，不能当作完整协议成绩。</span>`;
+    toast("官方 GS 基准已完成");
+  } catch (error) {
+    box.classList.add("warn");
+    box.textContent = `官方 GS 基准运行失败：${error.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function benchmarkSummary(bench) {
   const lines = ["【PSI 性能页摘要】"];
   lines.push("论文口径：2^20 / k=8000，在线 7.36s（半诚实）、9.74s（恶意）；CCS '23 表 7.7/7.8，LAN、32 线程。");
@@ -1291,6 +1318,7 @@ function bindEvents() {
     await renderBenchmark();
     switchScreen("benchmark");
   });
+  $("paperBenchBtn").addEventListener("click", runPaperBench);
   $("benchBackBtn").addEventListener("click", () => {
     if (state.lastResult) {
       switchScreen("result");

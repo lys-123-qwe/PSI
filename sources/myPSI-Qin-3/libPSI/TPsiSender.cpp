@@ -1,5 +1,6 @@
 
 #include "TPsiSender.h"
+#include "fastpoly.h"
 #include "libOTe/TwoChooseOne/IknpOtExtSender.h"
 #include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
 #include "cryptoTools/Crypto/PRNG.h"
@@ -148,15 +149,14 @@ namespace osuCrypto
 
         vec_ZZ_p x_vec, y_vec; //identifier
         x_vec.SetLength(n);
-        y_vec.SetLength(n);
         for (int i = 0; i < n; i++)
             x_vec[i] = i;
+
+        fastpoly::multipoint_eval(y_vec, h, x_vec);
 
         //n secret
         for (long i = 0; i < n; i++)
         {
-
-            y_vec[i] = func(h, x_vec[i]);
             BytesFromZZ((u8*)&indexs[i], rep(x_vec[i]), sizeof(block));
             BytesFromZZ((u8*)&shares[i], rep(y_vec[i]), sizeof(block));
         }
@@ -342,6 +342,10 @@ namespace osuCrypto
 
         //u64 statSecParam(40);
         u64 numHashFunctions = 128;
+        if (const char* h = std::getenv("MYPSI_HASHES")) {
+            int v = std::atoi(h);
+            if (v > 0) numHashFunctions = (u64)v;
+        }
 
         mHashs.resize(numHashFunctions);
         mBfBitCount = n * numHashFunctions * 2;
@@ -392,6 +396,10 @@ namespace osuCrypto
 
         //u64 statSecParam(40);
         u64 numHashFunctions = 128;
+        if (const char* h = std::getenv("MYPSI_HASHES")) {
+            int v = std::atoi(h);
+            if (v > 0) numHashFunctions = (u64)v;
+        }
 
         mHashs.resize(numHashFunctions);
         mBfBitCount = n * numHashFunctions * 2;

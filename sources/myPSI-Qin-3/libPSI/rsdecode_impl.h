@@ -7,6 +7,7 @@
 #include <map>
 #include <omp.h>
 #include <mutex>
+#include "fastpoly.h"
 
 using namespace NTL;
 using namespace std;
@@ -14,6 +15,7 @@ using namespace std;
 // Threshold to decide when to use Vandermonde in _fft
 // Determined experimentally based on minimising time taken by fft
 #define FFT_VAN_THRESHOLD 16
+// timing probe
 
 map <pair<int, ZZ>, mat_ZZ_p> _fft_van_matrices;
 ZZ _fft_van_modulus;
@@ -322,6 +324,59 @@ void partial_gcd(ZZ_pX &r, ZZ_pX &u, ZZ_pX &v, ZZ_pX &p0, ZZ_pX &p1, int thresho
     }
 }
 
+void partial_gcd_fast(ZZ_pX &r, ZZ_pX &u, ZZ_pX &v, ZZ_pX &p0, ZZ_pX &p1, int threshold)
+{
+    ZZ_pX r0 = p0;
+    ZZ_pX r1 = p1;
+    ZZ_pX s0, s1, t0, t1;
+    SetCoeff(s0, 0, 1);
+    SetCoeff(t1, 0, 1);
+
+    if (deg(r0) < threshold) {
+        r = r0;
+        u = s0;
+        v = t0;
+        return;
+    }
+
+    if (deg(r1) < threshold) {
+        r = r1;
+        u = s1;
+        v = t1;
+        return;
+    }
+
+    while (true) {
+        long d_red = deg(r0) - threshold + 1;
+        if (d_red <= 0) {
+            r = r0;
+            u = s0;
+            v = t0;
+            return;
+        }
+
+        ZZ_pXMatrix M;
+        XHalfGCD(M, r0, r1, d_red);
+
+        ZZ_pX ns0 = M(0, 0) * s0 + M(0, 1) * s1;
+        ZZ_pX nt0 = M(0, 0) * t0 + M(0, 1) * t1;
+        ZZ_pX ns1 = M(1, 0) * s0 + M(1, 1) * s1;
+        ZZ_pX nt1 = M(1, 0) * t0 + M(1, 1) * t1;
+
+        s0 = ns0;
+        t0 = nt0;
+        s1 = ns1;
+        t1 = nt1;
+
+        if (deg(r1) < threshold) {
+            r = r1;
+            u = s1;
+            v = t1;
+            return;
+        }
+    }
+}
+
 bool gao_interpolate(vec_ZZ_p &res_vec, vec_ZZ_p &err_vec,
                      vec_ZZ_p &x_vec, vec_ZZ_p &y_vec, int k, int n)
 {
@@ -331,11 +386,11 @@ bool gao_interpolate(vec_ZZ_p &res_vec, vec_ZZ_p &err_vec,
 
     // Step 1: Interpolate g1(x) s.t g1(xi) = yi
     ZZ_pX g1;
-    interpolate(g1, x_vec, y_vec);
+    fastpoly::interpolate(g1, x_vec, y_vec);
 
     // Step 2: Partial GCD
     ZZ_pX g, u, v;
-    partial_gcd(g, u, v, g0, g1, (n + k) / 2);
+    partial_gcd_fast(g, u, v, g0, g1, (n + k) / 2);
 
     // Step 3: Long division of g(x) / s(x)
     ZZ_pX r, f1;

@@ -203,3 +203,7 @@ def proxy_progress() -> dict[str, Any]:
 
 def proxy_cancel() -> dict[str, Any]:
     return _request_json("/api/cancel", "POST", {}, timeout=_STATUS_TIMEOUT)
+
+
+def proxy_paper_bench() -> dict[str, Any]:
+    return _request_json("/api/paper-bench", timeout=120)
