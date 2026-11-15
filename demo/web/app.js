@@ -999,6 +999,7 @@ async function renderBenchmark() {
     ]);
   });
   $("benchTable").innerHTML = `<thead><tr><th>工作</th><th>设置</th><th>结果</th><th>出处</th></tr></thead><tbody>${table.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  loadPaperPath(false);
 }
 
 async function runPaperBench() {
@@ -1025,6 +1026,57 @@ async function runPaperBench() {
     box.textContent = `官方 GS 基准运行失败：${error.message}`;
   } finally {
     btn.disabled = false;
+  }
+}
+
+function paperPathStatusLabel(status) {
+  return {
+    measured: "已实测",
+    available: "可运行",
+    not_integrated: "未接线",
+    unavailable: "缺组件",
+    failed: "失败",
+  }[status] || status || "未知";
+}
+
+async function loadPaperPath(runGs = false) {
+  const box = $("paperPathStages");
+  const btn = $("paperPathBtn");
+  const note = $("paperPathNote");
+  if (!box || !note) return;
+  if (btn) btn.disabled = true;
+  box.textContent = runGs ? "正在跑官方 GS 2^20…" : "正在检查论文路径…";
+  try {
+    const response = await fetch(`/api/paper-path${runGs ? "?run=1" : ""}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (payload.error) {
+      box.innerHTML = `<div class="paper-path-row"><span class="stage-name">论文路径不可用<span class="stage-meta">${escapeHtml(payload.error)}</span></span><span class="paper-path-status unavailable">错误</span></div>`;
+      note.textContent = "远程/本地论文路径未就绪；演示模式不受影响。";
+      return;
+    }
+    const stages = payload.stages || [];
+    if (!stages.length) {
+      box.textContent = "没有返回阶段信息。";
+      return;
+    }
+    box.innerHTML = stages.map((stage) => {
+      const local = stage.local_s == null ? "—" : `${Number(stage.local_s).toFixed(2)}s`;
+      const paper = stage.paper_s == null ? "—" : `${Number(stage.paper_s).toFixed(2)}s`;
+      const scope = stage.scope ? ` · ${stage.scope}` : "";
+      const engine = stage.engine ? ` · ${stage.engine}` : "";
+      const hint = stage.hint ? `<span class="stage-meta">${escapeHtml(stage.hint)}</span>` : "";
+      return `<div class="paper-path-row" title="${escapeHtml(stage.hint || "")}">
+        <span class="stage-name">${escapeHtml(stage.name)}<span class="stage-meta">本机 ${local} · 论文 ${paper}${escapeHtml(scope)}${escapeHtml(engine)}</span>${hint}</span>
+        <span class="paper-path-status ${escapeHtml(stage.status)}">${paperPathStatusLabel(stage.status)}</span>
+      </div>`;
+    }).join("");
+    const total = payload.local_total_s == null ? "未打通" : `${Number(payload.local_total_s).toFixed(2)}s`;
+    note.textContent = `${payload.verdict || ""} 论文完整口径 ${Number(payload.paper_total_s || 7.36).toFixed(2)}s；本机完整路径 ${total}；可比性：${payload.comparable ? "需核对设置" : "否"}。`;
+  } catch (error) {
+    box.innerHTML = `<div class="paper-path-row"><span class="stage-name">论文路径请求失败<span class="stage-meta">${escapeHtml(error.message)}</span></span><span class="paper-path-status failed">失败</span></div>`;
+    note.textContent = "演示模式不受影响；真实路径需要 Linux + GS/MP-SPDZ/PSI。";
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1319,6 +1371,7 @@ function bindEvents() {
     switchScreen("benchmark");
   });
   $("paperBenchBtn").addEventListener("click", runPaperBench);
+  $("paperPathBtn").addEventListener("click", () => loadPaperPath(true));
   $("benchBackBtn").addEventListener("click", () => {
     if (state.lastResult) {
       switchScreen("result");

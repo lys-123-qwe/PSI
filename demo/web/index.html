@@ -308,6 +308,17 @@
             </div>
             <div class="bench-meta" id="benchMeta">正在读取本机实测数据…</div>
             <div class="paper-bench" id="paperBenchResult">官方 GS 阶段基准：点击右上角按钮，在服务器上跑 CCS '23 `gs.cpp` 的 2^20 / 8000 轮；只代表 GS 阶段，不等于完整 pTPSI。</div>
+            <div class="paper-path" id="paperPath">
+              <div class="paper-path-head">
+                <div>
+                  <div class="panel-label">PAPER PATH · 2-PARTY</div>
+                  <h3>完整 2^20 pTPSI 还差什么</h3>
+                </div>
+                <button class="ghost ghost-small" id="paperPathBtn" type="button">跑 GS / 刷新</button>
+              </div>
+              <div class="paper-path-stages" id="paperPathStages">正在检查论文路径…</div>
+              <p class="hint" id="paperPathNote">GS / F-count / PSI 分开标注；阶段耗时不能相加冒充论文 7.36s。</p>
+            </div>
             <div class="bench-chart" id="benchChart"></div>
             <div class="bench-callout">2023 pTPSI 比旧 TPSI [20] 快约 <b>106×</b>，比旧拼车 [18] 快约 <b>765×</b>。<span>不同论文设置不同，仅作数量级参考。</span></div>
             <p class="hint">不同论文的硬件、参与方、安全模型不同，不能直接横比；图中只用于说明数量级。</p>

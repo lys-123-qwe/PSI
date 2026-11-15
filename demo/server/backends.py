@@ -1,4 +1,4 @@
-"""Effective backend selection: local binary first, then an optional remote."""
+gi"""Effective backend selection: local binary first, then an optional remote."""
 
 from __future__ import annotations
 

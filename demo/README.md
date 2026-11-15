@@ -19,6 +19,7 @@
 - 结果页可“导出 JSON / 复制结论”，现场老师说“发我一份”时直接给文件或粘贴。
 - 性能页可读本机实测 `data/bench.json`；没有实测数据时明确显示“尚无本机实测”，不拿论文数字冒充。
 - 性能页支持“复制实测摘要 / 下载 bench.json”，现场被问“数据发我”时直接给结构化文件。
+- 完整 2^20 的 2-party 论文路径怎么接、还缺什么、怎么验收，见 `demo/PAPER_PATH.md`；当前只复现 GS 阶段，不把约 2.3s 的 GS 或 Qin-3 结果冒充论文 7.36s。
 - 运行失败的错误卡片支持“复制错误”，可把中文原因 + 原始堆栈直接发群里。
 - 页脚“部署自检”会显示服务地址、版本、启动时间、前端资源时间，并检查前端文件、Python、真实后端、bench 数据、数据目录和任务状态。
 - `/api/version`、`/api/selfcheck` 可在现场用 curl 快速核对；`--host 0.0.0.0` 时启动日志会打印可访问的 LAN 地址。
@@ -382,6 +383,16 @@ GET  /api/bench       # 读 data/bench.json（本机实测）
 ```
 
 该数字是 **GS 阶段**，不是完整 pTPSI；完整 7.36s 还需要 F-count/SPDZ 计数和 OPRF PSI。二进制默认在 `~/psi-demo/paper-gs/gs20`，可用 `PAPER_GS_BIN` 覆盖。
+
+### 论文完整路径状态（GS / F-count / PSI）
+
+性能页新增“完整 2^20 pTPSI 还差什么”卡片，调用：
+
+- `GET /api/paper-path`：只查状态，不跑重任务；
+- `GET /api/paper-path?run=1`：跑一次官方 GS，并把 GS 标成 `measured`；
+- Windows 本地服务配置了 `PSI_REMOTE` 时，这两个请求会自动转发到 Linux 服务器。
+
+页面会把三个阶段分开标注：`GS`（可实测）、`F∩-count`（官方 mpc 已就位、未接 GS 输出）、`PSI`（官方仓库未提供）。只有三阶段都 `measured` 才可能出现 `local_total_s`；否则显示“未打通”，不会把 2.3s 和 1.6s 相加冒充 7.36s。详细接入步骤见 `demo/PAPER_PATH.md`。
 
 ## 现场演示的 3 分钟脚本
 

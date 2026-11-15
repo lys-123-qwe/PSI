@@ -20,6 +20,7 @@ from backends import effective_backend  # noqa: E402
 from diagnostics import APP_VERSION, selfcheck, server_info  # noqa: E402
 from orchestrator import bench, cancel, progress, run  # noqa: E402
 from paper import run_paper_gs  # noqa: E402
+from paper_path import status as paper_path_status  # noqa: E402
 from scenarios import DISABLED_SCENARIOS, SCENARIOS, default_config  # noqa: E402
 
 MAX_BODY = 48 * 1024 * 1024  # 3 x 131,072 hashes fit comfortably
@@ -123,6 +124,17 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, {"available": False, "error": str(exc)})
             else:
                 self._json(200, run_paper_gs())
+            return
+        if path == "/api/paper-path":
+            query = parse_qs(parsed.query)
+            run_gs = (query.get("run") or ["0"])[0].lower() in {"1", "true", "yes"}
+            if remote.configured():
+                try:
+                    self._json(200, remote.proxy_paper_path(run=run_gs))
+                except RuntimeError as exc:
+                    self._json(200, {"mode": "paper-2party", "stages": [], "error": str(exc)})
+            else:
+                self._json(200, paper_path_status(run_gs=run_gs))
             return
         if path == "/api/defaults":
             query = parse_qs(parsed.query)

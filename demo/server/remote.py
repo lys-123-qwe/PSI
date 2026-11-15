@@ -207,3 +207,8 @@ def proxy_cancel() -> dict[str, Any]:
 
 def proxy_paper_bench() -> dict[str, Any]:
     return _request_json("/api/paper-bench", timeout=120)
+
+
+def proxy_paper_path(run: bool = False) -> dict[str, Any]:
+    path = "/api/paper-path" + ("?run=1" if run else "")
+    return _request_json(path, timeout=90)
