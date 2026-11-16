@@ -11,7 +11,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
 }[ch]));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Paper 1 (IoV ride-sharing), Table IV: N=3, LAN 1000Mbps, t=0.6n, seconds.
+// IoV ride-sharing paper (TVT '25), Table IV: N=3, LAN 1000Mbps, t=0.6n, seconds.
 const PAPER_IV = {
   10: { n: 1024, t: 614, s: 2.15 },
   11: { n: 2048, t: 1229, s: 7.10 },
@@ -981,11 +981,11 @@ async function renderBenchmark() {
   }
 
   const table = [
-    ["2023 pTPSI", "2 方，2^20，k=8000", "在线 7.36s（半诚实）/ 9.74s（恶意）", "CCS '23 表 7.7/7.8"],
+    ["CCS '23 pTPSI", "2 方，2^20，k=8000", "在线 7.36s（半诚实）/ 9.74s（恶意）", "CCS '23 表 7.7/7.8"],
     ["旧 TPSI [20]", "2^11", "778.9s", "论文 1 引言"],
     ["旧拼车 [18]", "2^12", "5627s", "论文 1 引言"],
     ["旧方案 [26]", "100", "222.306s", "论文 1 引言"],
-    ["论文 4 IoV", "N≤10，n≤16384", "通信 125MB（1024/10 方）", "TVT '25"],
+    ["IoV 拼车", "N≤10，n≤16384", "通信 125MB（1024/10 方）", "TVT '25"],
   ];
   (bench.cases || []).forEach((item) => {
     const total = item.total_s == null ? "—" : `${Number(item.total_s).toFixed(2)}s`;

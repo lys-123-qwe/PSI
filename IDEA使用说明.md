@@ -23,6 +23,22 @@ demo/data         bench.json 和样例生成脚本
 sources/          myPSI-Qin-3 与 libOTe 源码/依赖副本
 ```
 
+## 2.1 汇报文件索引（已在 IDEA 工程内）
+
+下面这些文件都在当前 IDEA 工程根目录下，`PSI-Demo.iml` 已把 `demo/web` 和 `demo/server` 设为源码目录，不需要再复制：
+
+| 文件 | 作用 |
+|---|---|
+| `demo/web/index.html` | 页面入口，五个步骤和性能页 |
+| `demo/web/app.js` | 前端逻辑：模式切换、参数、运行、结果、性能 |
+| `demo/server/app.py` | Python HTTP 路由：`/api/run`、`/api/paper-bench`、`/api/paper-path` |
+| `demo/server/orchestrator.py` | 真实后端编排：三方进程、stdout 解析、mock/live 分流 |
+| `demo/server/paper.py` | 官方 CCS'23 `gs.cpp` 的 2^20 GS 基准 |
+| `demo/server/paper_path.py` | GS / F-count / PSI 完整路径状态 |
+| `demo/web/real.html` | 三方真实文件模式 `/real` |
+
+如果 IDEA 的项目树里看不到新文件：`File -> Reload from Disk`；仍然看不到时，确认打开的是项目根目录（含 `PSI-Demo.iml` 的目录），不是只打开了 `demo` 子目录。
+
 ## 3. Windows：演示模式（不需要后端）
 
 在项目根目录执行：
