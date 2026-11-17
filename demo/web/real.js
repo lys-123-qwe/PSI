@@ -11,9 +11,10 @@ const state = {
   poller: null,
   result: null,
   backend: { exists: false, patched: false },
-  remote: { configured: false, url: "", reachable: false, error: "" },
+  remote: { configured: false, url: "", urls: [], reachable: false, ready_count: 0, fallback_used: false, error: "" },
   scenarios: [],
   scenario: null,
+  capacityLog: "auto",
   sampleBusy: false,
   sampleToken: 0,
 };
@@ -67,10 +68,16 @@ function renderBackendBanner() {
   if (backend.exists) {
     el.classList.add("ok");
     if (backend.source === "remote") {
-      strong.textContent = "远程真实后端已就绪";
+      strong.textContent = backend.remote_fallback_used
+        ? "远程真实后端已就绪（备用）"
+        : "远程真实后端已就绪";
       el.appendChild(strong);
       const detail = document.createElement("span");
-      detail.textContent = ` · ${backend.remote_url || backend.binary}。浏览器本地做 SHA-256，只有哈希发往服务器；首页的演示模式也仍可使用。`;
+      const remoteUrls = backend.remote_urls || remote.urls || [];
+      const backupNote = remoteUrls.length > 1
+        ? `（主/备共 ${remoteUrls.length} 个，${backend.remote_fallback_used ? "主后端不可达，已自动切到备用" : "主后端可用"}）`
+        : "";
+      detail.textContent = ` · ${backend.remote_url || backend.binary}${backupNote}。浏览器本地做 SHA-256，只有哈希发往服务器；首页的演示模式也仍可使用。`;
       el.appendChild(detail);
     } else {
       strong.textContent = backend.patched ? "本机真实后端已就绪（已打补丁）" : "本机真实后端已就绪（未打补丁）";
@@ -87,7 +94,9 @@ function renderBackendBanner() {
   el.appendChild(strong);
   const detail = document.createElement("span");
   if (remote.configured) {
-    detail.textContent = ` · 远程 ${remote.url || ""} 不可达：${remote.error || "未知原因"}。${backend.note || ""}`;
+    const remoteUrls = remote.urls || [];
+    const tried = remoteUrls.length > 1 ? `（已尝试 ${remoteUrls.length} 个地址）` : "";
+    detail.textContent = ` · 远程 ${remote.url || ""}${tried} 不可达：${remote.error || "未知原因"}。${backend.note || ""}`;
   } else {
     detail.textContent = " · 本机没有 Linux 真实二进制。";
   }
@@ -111,6 +120,110 @@ function renderBackendBanner() {
     const tail = document.createElement("span");
     tail.textContent = " 请在 Linux 服务器设置 MYPSI_BIN，或设置 PSI_REMOTE 指向已配好的服务器后重启。";
     el.appendChild(tail);
+  }
+}
+
+function backendPoolItems() {
+  const backend = state.backend || {};
+  const remote = state.remote || {};
+  const candidates = backend.remote_candidates || remote.candidates || [];
+  if (Array.isArray(candidates) && candidates.length) return candidates;
+  if (backend.exists && backend.source !== "remote") {
+    return [{
+      role: "local",
+      url: backend.binary || "MYPSI_BIN",
+      ready: true,
+      reachable: true,
+      selected: true,
+      error: "",
+    }];
+  }
+  return [];
+}
+
+function renderBackendPool() {
+  const el = $("backendPool");
+  if (!el) return;
+  const items = backendPoolItems();
+  el.textContent = "";
+  if (!items.length) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  for (const item of items) {
+    const chip = document.createElement("span");
+    const role = item.role === "primary" ? "主" : item.role === "local" ? "本机" : "备";
+    const status = !item.reachable ? "不可达" : !item.ready ? "无真实后端" : item.selected ? "已选中" : "在线";
+    chip.className = "backend-chip";
+    if (item.ready) chip.classList.add("ready");
+    if (item.selected) chip.classList.add("selected");
+    if (!item.ready) chip.classList.add("offline");
+    chip.title = item.error || item.url || "";
+    const dot = document.createElement("i");
+    dot.className = "dot";
+    chip.appendChild(dot);
+    const roleEl = document.createElement("span");
+    roleEl.className = "role";
+    roleEl.textContent = role;
+    chip.appendChild(roleEl);
+    const addr = document.createElement("span");
+    addr.className = "addr";
+    addr.textContent = item.url || "未配置地址";
+    chip.appendChild(addr);
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = status;
+    chip.appendChild(tag);
+    el.appendChild(chip);
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "backend-refresh";
+  button.dataset.backendRefresh = "1";
+  button.textContent = "重新检测";
+  el.appendChild(button);
+}
+
+function updateModePill() {
+  if (!state.backend.exists) {
+    $("modePill").textContent = "仅演示模式";
+  } else if (state.backend.source === "remote") {
+    $("modePill").textContent = state.backend.remote_fallback_used
+      ? "远程真实后端（备用）"
+      : "远程真实后端";
+  } else if (!state.backend.patched) {
+    $("modePill").textContent = "后端未打补丁";
+  } else {
+    $("modePill").textContent = "本机真实后端";
+  }
+}
+
+async function refreshBackends() {
+  const button = document.querySelector("[data-backend-refresh]");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch("/api/backends?refresh=1", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    state.backend = payload.backend || state.backend;
+    state.remote = payload.remote || state.remote;
+    updateModePill();
+    renderBackendBanner();
+    renderBackendPool();
+    renderMeta();
+    if (!state.backend.exists) {
+      toast("真实后端均不可用；演示模式仍可使用");
+    } else if (state.backend.remote_fallback_used) {
+      toast("主后端不可达，已自动切到备用后端");
+    } else {
+      toast("真实后端检测完成，可以开始运行");
+    }
+  } catch (error) {
+    toast(`检测失败：${error.message}`);
+  } finally {
+    const next = document.querySelector("[data-backend-refresh]");
+    if (next) next.disabled = false;
   }
 }
 
@@ -301,12 +414,37 @@ function renderRole(role) {
   $("preview" + label).textContent = `${preview}${entry.items.length > 4 ? "\n…" : ""}\n\n本地哈希 ${entry.ms.toFixed(2)}s · ${entry.name}`;
 }
 
+const CAPACITY_HINT = {
+  8: "≈3s",
+  9: "≈3.5s",
+  10: "≈4s",
+  11: "≈14s",
+  12: "≈55s",
+  13: "≈3.5min",
+};
+
 function capacity() {
   const sizes = ["a", "b", "c"].map((role) => (state.files[role] ? state.files[role].items.length : 0));
   const largest = Math.max(0, ...sizes);
-  if (!largest) return { largest, nLog: 0, n: 0 };
-  const nLog = Math.max(8, Math.ceil(Math.log2(largest)));
-  return { largest, nLog, n: 2 ** nLog };
+  if (!largest) return { largest, requiredLog: 0, nLog: 0, n: 0, manual: false, invalid: false };
+  const requiredLog = Math.max(8, Math.ceil(Math.log2(largest)));
+  const manual = Number.isInteger(state.capacityLog);
+  const requested = manual ? state.capacityLog : requiredLog;
+  const invalid = manual && requested < requiredLog;
+  const nLog = invalid ? requiredLog : requested;
+  return { largest, requiredLog, nLog, n: 2 ** nLog, manual, invalid };
+}
+
+function fillCapacityOptions() {
+  const select = $("capacityLog");
+  if (!select) return;
+  const options = ['<option value="auto">自动（按最大集合）</option>'];
+  for (let nLog = 8; nLog <= 17; nLog += 1) {
+    const hint = CAPACITY_HINT[nLog] ? `　${CAPACITY_HINT[nLog]}` : "　很慢，不建议现场";
+    options.push(`<option value="${nLog}">2^${nLog} = ${fmt(2 ** nLog)}${hint}</option>`);
+  }
+  select.innerHTML = options.join("");
+  select.value = Number.isInteger(state.capacityLog) ? String(state.capacityLog) : "auto";
 }
 
 function thresholdStatus() {
@@ -346,13 +484,22 @@ function renderMeta() {
   const ready = ["a", "b", "c"].every((role) => state.files[role]);
   const sizes = ["a", "b", "c"].map((role) => (state.files[role] ? state.files[role].items.length : 0));
   const cap = capacity();
+  const capSelect = $("capacityLog");
+  const capError = $("capacityError");
+  if (capSelect) capSelect.classList.toggle("invalid", cap.invalid);
+  if (capError) {
+    capError.textContent = cap.invalid
+      ? `不能小于自动容量 2^${cap.requiredLog} = ${fmt(2 ** cap.requiredLog)}`
+      : "";
+    capError.classList.toggle("hidden", !cap.invalid);
+  }
   const threshold = $("threshold");
   const thresholdLabel = state.scenario ? state.scenario.threshold_label : "交集门限 k";
   $("thresholdLabel").textContent = thresholdLabel;
   if (ready && cap.n > 0) {
     $("realMeta").innerHTML =
       `去重后：A <b>${fmt(sizes[0])}</b> / B <b>${fmt(sizes[1])}</b> / C <b>${fmt(sizes[2])}</b> 条；` +
-      `协议容量 <b>2^${cap.nLog} = ${fmt(cap.n)}</b>（按最大集合自动取）。` +
+      `协议容量 <b>2^${cap.nLog} = ${fmt(cap.n)}</b>（${cap.manual ? (cap.invalid ? "手动指定不足" : "手动指定") : "按最大集合自动取"}）。` +
       (state.scenario ? `<br>${scenarioRoleText(state.scenario)}；${state.scenario.real_note}` : "");
     const maxThreshold = Math.min(...sizes);
     $("thresholdHint").textContent = `${thresholdLabel}：可填 1..${fmt(maxThreshold)}（三方最小集合）；超过会显示红色提示，无法开始。`;
@@ -363,7 +510,7 @@ function renderMeta() {
     $("thresholdHint").textContent = `${thresholdLabel}：交集 ≥ k 才输出；未达到输出 ⊥。`;
   }
   const status = updateThresholdFeedback();
-  $("runBtn").disabled = !status.valid || !state.backend.exists || cap.nLog > 17;
+  $("runBtn").disabled = !status.valid || !state.backend.exists || cap.nLog > 17 || cap.invalid;
 }
 
 function stopTimers() {
@@ -371,6 +518,11 @@ function stopTimers() {
   if (state.poller) clearInterval(state.poller);
   state.timer = null;
   state.poller = null;
+}
+
+function protocolPortText() {
+  const ports = state.backend.ports || {};
+  return ports.p0 && ports.p1 ? `${ports.p0}/${ports.p1}` : "1212/1213";
 }
 
 function stageText(progress) {
@@ -381,7 +533,7 @@ function stageText(progress) {
   if (stage === 3) return "份额收发完成，进入门限比较…";
   if (stage === 2) return "离线阶段完成（编码 + OPRF），进入份额收发…";
   if (progress.message) return progress.message;
-  return "启动两个发送方（端口 1212/1213）…";
+  return `启动两个发送方（端口 ${protocolPortText()}）…`;
 }
 
 async function pollProgress(token, startedAt) {
@@ -415,6 +567,10 @@ async function run() {
     return;
   }
   const cap = capacity();
+  if (cap.invalid) {
+    toast(`协议容量不能小于自动容量 2^${cap.requiredLog}`);
+    return;
+  }
   if (cap.nLog > 17) {
     toast("超过 2^17，请先抽样到 131,072 条以内");
     return;
@@ -438,7 +594,7 @@ async function run() {
   $("setupPanel").classList.add("hidden");
   $("progressTimer").textContent = "0.00s";
   $("progressBar").style.width = "5%";
-  $("progressStage").textContent = "启动两个发送方（端口 1212/1213）…";
+  $("progressStage").textContent = `启动两个发送方（端口 ${protocolPortText()}）…`;
   $("progressStats").textContent = "等待后端日志…";
 
   const startedAt = performance.now();
@@ -454,6 +610,7 @@ async function run() {
     data_mode: "files",
     scenario: state.scenario ? state.scenario.id : "ad",
     threshold,
+    capacity_n_log: cap.nLog,
     set_a: state.files.a.hashes.join("\n"),
     set_b: state.files.b.hashes.join("\n"),
     set_c: state.files.c.hashes.join("\n"),
@@ -616,12 +773,17 @@ async function cancel() {
 }
 
 async function boot() {
+  fillCapacityOptions();
   ["a", "b", "c"].forEach((role) => {
     $("file" + role.toUpperCase()).addEventListener("change", (event) => {
       loadFile(role, event.target.files && event.target.files[0]);
     });
   });
   $("threshold").addEventListener("input", renderMeta);
+  $("capacityLog").addEventListener("change", (event) => {
+    state.capacityLog = event.target.value === "auto" ? "auto" : Number(event.target.value);
+    renderMeta();
+  });
   $("samplePassBtn").addEventListener("click", () => loadSamplesAndRun(200));
   $("sampleRejectBtn").addEventListener("click", () => loadSamplesAndRun(400));
   $("runBtn").addEventListener("click", run);
@@ -653,6 +815,12 @@ async function boot() {
     $("errorDetail").classList.toggle("hidden");
     $("errorToggleBtn").textContent = $("errorDetail").classList.contains("hidden") ? "显示原始错误" : "收起原始错误";
   });
+  const pool = $("backendPool");
+  if (pool) {
+    pool.addEventListener("click", (event) => {
+      if (event.target.closest("[data-backend-refresh]")) refreshBackends();
+    });
+  }
 
   try {
     const response = await fetch("/api/config", { cache: "no-store" });
@@ -663,14 +831,9 @@ async function boot() {
     renderScenarioTabs();
     const requested = new URLSearchParams(window.location.search).get("scenario") || "ad";
     applyScenario(requested, false);
-    if (!state.backend.exists) {
-      $("modePill").textContent = "仅演示模式";
-    } else if (state.backend.source === "remote") {
-      $("modePill").textContent = "远程真实后端";
-    } else if (!state.backend.patched) {
-      $("modePill").textContent = "后端未打补丁";
-    }
+    updateModePill();
     renderBackendBanner();
+    renderBackendPool();
     renderMeta();
   } catch (error) {
     toast(`读取配置失败：${error.message}`);

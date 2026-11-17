@@ -47,6 +47,22 @@
 #include<time.h>
 using namespace std;
 using namespace NTL;
+
+static int psiPortBase()
+{
+    static int base = []() {
+        const char* value = getenv("MYPSI_PORT_BASE");
+        int parsed = value ? atoi(value) : 1200;
+        if (parsed < 1024 || parsed > 64000) parsed = 1200;
+        return parsed;
+    }();
+    return base;
+}
+
+static string psiEndpoint(int offset)
+{
+    return "localhost:" + to_string(psiPortBase() + offset);
+}
 //#include "ShamirSSScheme.h"
 
 namespace osuCrypto
@@ -623,13 +639,13 @@ namespace osuCrypto
 
             
             // 接收
-            Channel recverChl1 = Session(ios1, "localhost:1313", SessionMode::Client).addChannel();
+            Channel recverChl1 = Session(ios1, psiEndpoint(113), SessionMode::Client).addChannel();
             auto recvDone = recverChl1.asyncRecv((u8*)recvGBF.data(), recvGBF.size() * sizeof(block));
             recvDone.get();
             std::cout << "this is recvGBF" << recvGBF[0] << std::endl;
  
             // 发送
-            Channel senderChl1 = Session(ios1, "localhost:1312", SessionMode::Server).addChannel();
+            Channel senderChl1 = Session(ios1, psiEndpoint(112), SessionMode::Server).addChannel();
             senderChl1.asyncSend(std::move(garbledBF2));
            
             u64 dataRecv1 = recverChl1.getTotalDataRecv();
@@ -641,7 +657,7 @@ namespace osuCrypto
         {
  
             IOService ios2;
-            Channel senderChl2 = Session(ios2, "localhost:1313", SessionMode::Server).addChannel();
+            Channel senderChl2 = Session(ios2, psiEndpoint(113), SessionMode::Server).addChannel();
             std::vector<std::array<block, 2>> sendGBFP2(mBfBitCount);
             for (u64 i = 0; i < mBfBitCount; i++)
             {
@@ -662,7 +678,7 @@ namespace osuCrypto
             {
                 newBF[i] = 1;
             }
-            Channel recverChl2 = Session(ios2, "localhost:1312", SessionMode::Client).addChannel();
+            Channel recverChl2 = Session(ios2, psiEndpoint(112), SessionMode::Client).addChannel();
 
             // The code to be run by the OT receiver.
             auto recverThread = std::thread([&]() {
@@ -695,7 +711,7 @@ namespace osuCrypto
         if (flag == 1)
         {
 
-            senderChl = Session(ios, "localhost:1212", SessionMode::Server).addChannel();
+            senderChl = Session(ios, psiEndpoint(12), SessionMode::Server).addChannel();
             // Choose which messages should be sent.
             //sendMessages[0] = { toBlock(21), toBlock(19) };
             //sendMessages[1] = { toBlock(54), toBlock(33) };
@@ -716,7 +732,7 @@ namespace osuCrypto
         }
         else
         {
-            senderChl = Session(ios, "localhost:1213", SessionMode::Server).addChannel();
+            senderChl = Session(ios, psiEndpoint(13), SessionMode::Server).addChannel();
             for (u64 i = 0; i < mBfBitCount; i++)
             {
                 sendMessages[i] = { prng.get<block>(),garbledBF1[i] ^ recvGBF[i] };
@@ -899,7 +915,7 @@ namespace osuCrypto
             }
 
             // 接收
-            Channel recverChl1 = Session(ios1, "localhost:1313", SessionMode::Client).addChannel();
+            Channel recverChl1 = Session(ios1, psiEndpoint(113), SessionMode::Client).addChannel();
 
             // The code to be run by the OT receiver.
             auto recverThread = std::thread([&]() {
@@ -917,7 +933,7 @@ namespace osuCrypto
                 });
             recverThread.join();
             // 发送
-            Channel senderChl1 = Session(ios1, "localhost:1312", SessionMode::Server).addChannel();
+            Channel senderChl1 = Session(ios1, psiEndpoint(112), SessionMode::Server).addChannel();
             std::vector<std::array<block, 2>> sendGBFP1(mBfBitCount);
             for (u64 i = 0; i < mBfBitCount; i++)
             {
@@ -945,7 +961,7 @@ namespace osuCrypto
             //clientSend(szSendBuf, 8888);
             //serverRecv(8889);
             IOService ios2;
-            Channel senderChl2 = Session(ios2, "localhost:1313", SessionMode::Server).addChannel();
+            Channel senderChl2 = Session(ios2, psiEndpoint(113), SessionMode::Server).addChannel();
             senderChl2.asyncSend(std::move(garbledBF1));
             //std::vector<std::array<block, 2>> sendGBFP2(mBfBitCount);
             //for (u64 i = 0; i < mBfBitCount; i++)
@@ -967,7 +983,7 @@ namespace osuCrypto
             {
                 newBF[i] = 1;
             }*/
-            Channel recverChl2 = Session(ios2, "localhost:1312", SessionMode::Client).addChannel();
+            Channel recverChl2 = Session(ios2, psiEndpoint(112), SessionMode::Client).addChannel();
             auto recvDone = recverChl2.asyncRecv((u8*)recvGBF.data(), recvGBF.size() * sizeof(block));
             recvDone.get();
             std::cout << "this is recvGBF" << recvGBF[0] << std::endl;
@@ -999,7 +1015,7 @@ namespace osuCrypto
         if (flag == 1)
         {
 
-            senderChl = Session(ios, "localhost:1212", SessionMode::Server).addChannel();
+            senderChl = Session(ios, psiEndpoint(12), SessionMode::Server).addChannel();
             // Choose which messages should be sent.
 
             for (u64 i = 0; i < mBfBitCount; i++)
@@ -1009,7 +1025,7 @@ namespace osuCrypto
         }
         else
         {
-            senderChl = Session(ios, "localhost:1213", SessionMode::Server).addChannel();
+            senderChl = Session(ios, psiEndpoint(13), SessionMode::Server).addChannel();
             for (u64 i = 0; i < mBfBitCount; i++)
             {
                 sendMessages[i] = { prng.get<block>(),garbledBF2[i] ^ recvGBF[i] };

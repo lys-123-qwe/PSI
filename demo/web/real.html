@@ -32,11 +32,14 @@
     .party-badge.c { background: rgba(120, 150, 255, 0.16); color: #aebfff; }
     .real-controls { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
     .real-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
-    .real-controls input[type="number"] {
+    .real-controls input[type="number"],
+    .real-controls select {
       width: 150px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong);
       background: rgba(2, 9, 16, 0.62); color: var(--text); font-size: 15px;
     }
-    .real-controls input[type="number"].invalid {
+    .real-controls select { width: 230px; cursor: pointer; }
+    .real-controls input[type="number"].invalid,
+    .real-controls select.invalid {
       border-color: #ff7777; box-shadow: 0 0 0 2px rgba(255, 90, 90, 0.16);
     }
     .field-error { color: #ff8d8d; font-size: 11px; line-height: 1.45; }
@@ -99,6 +102,7 @@
       </section>
 
       <div class="backend-banner" id="backendBanner" role="status">正在检查真实后端…</div>
+      <div class="backend-pool" id="backendPool" hidden></div>
 
       <section class="panel" id="setupPanel">
         <div class="panel-label">STEP 01 · 选择三份集合</div>
@@ -136,6 +140,12 @@
         <div class="real-meta" id="realMeta">选择三份文件后，这里显示去重条数与协议容量。</div>
 
         <div class="real-controls">
+          <label><span>协议容量</span>
+            <select id="capacityLog" aria-describedby="perfHint">
+              <option value="auto">自动（按最大集合）</option>
+            </select>
+            <span class="field-error hidden" id="capacityError" role="alert"></span>
+          </label>
           <label><span id="thresholdLabel">最少归因成交人数 k</span>
             <input type="number" id="threshold" min="1" step="1" inputmode="numeric" value="100" aria-describedby="thresholdHint thresholdError" />
             <span class="field-error hidden" id="thresholdError" role="alert"></span>
@@ -143,7 +153,7 @@
           <span class="hint" id="thresholdHint">交集 ≥ k 才输出；未达到输出 ⊥。</span>
           <button class="primary big" id="runBtn">开始真实求交 →</button>
         </div>
-        <p class="hint" id="perfHint">实测参考（含 2.5s 启动）：2^9≈3.5s，2^10≈4s，2^11≈14s，2^12≈55s，2^13≈3.5min；单方上限 2^17 = 131,072。现场建议 ≤ 2^11。</p>
+        <p class="hint" id="perfHint">容量默认按最大集合自动取；手动调大只会增加耗时，不会改变交集。实测参考（含 2.5s 启动）：2^9≈3.5s，2^10≈4s，2^11≈14s，2^12≈55s，2^13≈3.5min；单方上限 2^17 = 131,072。现场建议 ≤ 2^11。</p>
       </section>
 
       <section class="panel hidden" id="progressPanel" style="margin-top:18px">

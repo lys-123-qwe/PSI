@@ -49,6 +49,22 @@
 using namespace std;
 using namespace NTL;
 
+static int psiPortBase()
+{
+    static int base = []() {
+        const char* value = getenv("MYPSI_PORT_BASE");
+        int parsed = value ? atoi(value) : 1200;
+        if (parsed < 1024 || parsed > 64000) parsed = 1200;
+        return parsed;
+    }();
+    return base;
+}
+
+static string psiEndpoint(int offset)
+{
+    return "localhost:" + to_string(psiPortBase() + offset);
+}
+
 #include <set>
 
 namespace osuCrypto
@@ -303,9 +319,9 @@ namespace osuCrypto
         // 测试OT
         IOService ios;
 
-        Channel recverChl1 = Session(ios, "localhost:1212", SessionMode::Client).addChannel();
+        Channel recverChl1 = Session(ios, psiEndpoint(12), SessionMode::Client).addChannel();
         //Channel recverChl1_index = Session(ios, "localhost:1211", SessionMode::Client).addChannel();
-        Channel recverChl2 = Session(ios, "localhost:1213", SessionMode::Client).addChannel();
+        Channel recverChl2 = Session(ios, psiEndpoint(13), SessionMode::Client).addChannel();
 
         // The code to be run by the OT receiver.
         auto recverThread = std::thread([&]() {

@@ -9,6 +9,10 @@
 
 > 重要：GitHub Pages 只能托管静态网页，不能运行 `/api/run`、`/real` 和 Qin-3 进程。别人要使用真实数据模式，必须在他自己的电脑/服务器上启动本项目的 Python 服务，或把 `demo/remote-backend.txt` 指向一台已经部署好的 Linux 真实后端。
 
+> 换一台电脑、发给别人、局域网共享、生成压缩包，见 `demo/SHARE.md`：
+> 对方解压后双击 `start-demo.cmd` 即可演示；需要真实模式时双击 `connect-server.cmd` 并粘贴服务器地址。
+> 重新打包运行 `demo\scripts\make-share-package.ps1`，产物在 `outputs\PSI-Demo-Windows-*.zip`。
+
 ## 快速开始（演示模式，跨平台）
 
 要求 Python 3.10+，不需要 `pip install`，不需要 C++ 后端。
@@ -74,10 +78,11 @@ Copy-Item remote-backend.example.txt remote-backend.txt
 notepad remote-backend.txt
 ```
 
-3. 在 `remote-backend.txt` 写入一行 Linux 服务地址，例如：
+3. 在 `remote-backend.txt` 写入 Linux 服务地址，一行一个，按优先级从主到备；只写一行也可以：
 
 ```text
 http://192.0.2.10:8787
+http://192.0.2.11:8787
 ```
 
 4. 启动本地服务：
@@ -86,12 +91,32 @@ http://192.0.2.10:8787
 .\start.ps1
 ```
 
-浏览器仍然只访问本机 `http://127.0.0.1:8787`。本机 Python 服务会把 `live` 和 `/real` 请求转发给 Linux 后端；远程不可达时演示模式仍然可用。
+浏览器仍然只访问本机 `http://127.0.0.1:8787`。本机 Python 服务会把 `live` 和 `/real` 请求转发给第一个可达的真实后端；主后端连接失败时自动尝试下一个，两台都不可用时演示模式仍然可用。
+
+也可以直接用脚本写主/备两个地址并启动：
+
+```powershell
+.\connect-server.cmd -Primary http://192.0.2.10:8787 -Backup http://192.0.2.11:8787
+```
+
+首页参数区和 `/real` 顶部会显示“主 / 备”状态点，点“重新检测”立即重新探活。第二个实例（可以就在导师同一台 Linux 上）的启动方法和完整主备切换步骤见 `demo/BACKENDS.md`。
+
+两个人共用导师同一台 Linux 时，不需要再申请第二台机器，只要各起一个实例：
+
+```bash
+# A：Web 8787，真实协议 1212/1213
+HOST=0.0.0.0 PORT=8787 MYPSI_PORT_BASE=1200 bash demo/start.sh
+
+# B：Web 8788，真实协议 1332/1333
+HOST=0.0.0.0 PORT=8788 MYPSI_PORT_BASE=1320 bash demo/start.sh
+```
+
+两边都设置 `MYPSI_BIN` 和 `MYPSI_LD_LIBRARY_PATH`（或各自写 `demo/backend.env`）。同一实例内仍串行，不同实例可以同时跑真实任务。
 
 `remote-backend.txt` 已加入 `.gitignore`，不要把真实服务器地址提交到公开仓库。也可以不建文件，直接设置环境变量：
 
 ```powershell
-$env:PSI_REMOTE = "http://192.0.2.10:8787"
+$env:PSI_REMOTE = "http://192.0.2.10:8787;http://192.0.2.11:8787"
 .\start.ps1
 ```
 
@@ -112,7 +137,7 @@ $env:PSI_REMOTE = "http://192.0.2.10:8787"
 | `MYPSI_PATCHED` | 是否为支持 `common != threshold` 和真实文件输入的补丁版 |
 | `MYPSI_TIMEOUT` | 单次真实协议超时时间，默认 300 秒 |
 | `MYPSI_LD_LIBRARY_PATH` | 真实二进制依赖的动态库目录 |
-| `PSI_REMOTE` | 远程 Linux Demo 地址；也可以写入 `demo/remote-backend.txt` |
+| `PSI_REMOTE` | 远程 Linux Demo 地址，可写多个（`;` 或 `,` 分隔，主到备）；也可以写入 `demo/remote-backend.txt` |
 | `PSI_PUBLIC_URL` | 页面上展示给现场观众的远程服务地址 |
 | `PSI_REMOTE_RUN_TIMEOUT` | 本地桥接等待远程真实任务的超时，默认 420 秒 |
 

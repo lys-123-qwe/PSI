@@ -28,6 +28,12 @@ def effective_backend() -> dict[str, Any]:
     backend["remote_url"] = snapshot.get("url", "")
     backend["remote_reachable"] = bool(snapshot.get("reachable"))
     backend["remote_error"] = snapshot.get("error", "")
+    backend["remote_urls"] = snapshot.get("urls", [])
+    backend["remote_candidates"] = snapshot.get("candidates", [])
+    backend["remote_fallback_used"] = bool(snapshot.get("fallback_used"))
+    backend["remote_ready_count"] = sum(
+        1 for item in snapshot.get("candidates", []) if item.get("ready")
+    )
 
     remote_backend = snapshot.get("backend") or {}
     if (
@@ -36,6 +42,15 @@ def effective_backend() -> dict[str, Any]:
         and isinstance(remote_backend, dict)
         and remote_backend.get("exists")
     ):
+        urls = snapshot.get("urls") or []
+        note = f"已连接远程真实后端 {snapshot.get('url', '')}"
+        if len(urls) > 1:
+            note += (
+                f"（共 {len(urls)} 个地址，"
+                + ("主后端不可用，已自动切到备用" if snapshot.get("fallback_used") else "主后端可用")
+                + "）"
+            )
+        note += "；演示模式仍可直接使用。"
         return {
             **backend,
             "mode": "remote",
@@ -45,16 +60,22 @@ def effective_backend() -> dict[str, Any]:
             "binary_size": remote_backend.get("binary_size"),
             "binary_mtime": remote_backend.get("binary_mtime"),
             "platform": remote_backend.get("platform", "posix"),
+            "port_base": remote_backend.get("port_base"),
+            "ports": remote_backend.get("ports"),
             "source": "remote",
-            "note": (
-                f"本地无 Linux 二进制，已连接远程真实后端 {snapshot.get('url', '')}；"
-                "演示模式仍可直接使用。"
-            ),
+            # The banner link must point at the backend that actually answered,
+            # not at a primary that may be down.
+            "public_url": snapshot.get("url", ""),
+            "note": note,
         }
 
     if snapshot.get("configured"):
         reason = snapshot.get("error") or "远程服务未配置可用的 MYPSI_BIN"
-        backend["note"] = f"未配置本地 MYPSI_BIN；远程真实后端不可用（{reason}）。当前只能使用演示模式。"
+        count = len(snapshot.get("urls", []))
+        backend["note"] = (
+            f"未配置本地 MYPSI_BIN；{count} 个远程真实后端都不可用（{reason}）。"
+            "当前只能使用演示模式。"
+        )
     else:
         backend["note"] = "未配置本地 MYPSI_BIN；当前只能使用演示模式。"
     return backend

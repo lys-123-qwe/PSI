@@ -139,14 +139,14 @@ int main(int argc, char** argv) {
 	if (argv[1][0] == '0')
 	{
 
-		// 参与方P1
+		// 参与方P0（接收方）
 		TPsiRecv(atoi(argv[2]), atoi(argv[3]), argc > 4 ? atoi(argv[4]) : atoi(argv[3]));
 
 
 	}
 	else if (argv[1][0] == '1')
 	{
-		// 参与方P0
+		// 参与方P1（发送方）
 		TPsiSend(1, atoi(argv[2]), atoi(argv[3]), argc > 4 ? atoi(argv[4]) : atoi(argv[3]));
 	}
 	else

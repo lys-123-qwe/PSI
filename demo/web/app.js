@@ -30,6 +30,7 @@ const state = {
   mode: "mock",
   mockPreset: null,
   backend: { exists: false, patched: false, binary: "" },
+  remote: null,
   running: false,
   lastResult: null,
   runToken: 0,
@@ -285,7 +286,107 @@ function backendFooterLabel() {
 
 function backendModeLabel() {
   const backend = state.backend || {};
-  return backend.source === "remote" ? "远程真实后端" : "真实后端";
+  if (backend.source !== "remote") return "真实后端";
+  return backend.remote_fallback_used ? "远程真实后端（备用）" : "远程真实后端";
+}
+
+function backendPoolItems() {
+  const backend = state.backend || {};
+  const remote = state.remote || {};
+  const candidates = backend.remote_candidates || remote.candidates || [];
+  if (Array.isArray(candidates) && candidates.length) return candidates;
+  if (backend.exists && backend.source !== "remote") {
+    return [{
+      role: "local",
+      url: backend.binary || "MYPSI_BIN",
+      ready: true,
+      reachable: true,
+      selected: true,
+      error: "",
+    }];
+  }
+  return [];
+}
+
+function backendPoolStatus(item) {
+  if (!item.reachable) return "不可达";
+  if (!item.ready) return "无真实后端";
+  return item.selected ? "已选中" : "在线";
+}
+
+function renderBackendPool() {
+  const el = $("backendPool");
+  if (!el) return;
+  const items = backendPoolItems();
+  el.textContent = "";
+  if (!items.length) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  for (const item of items) {
+    const chip = document.createElement("span");
+    const role = item.role === "primary" ? "主" : item.role === "local" ? "本机" : "备";
+    const status = backendPoolStatus(item);
+    chip.className = "backend-chip";
+    if (item.ready) chip.classList.add("ready");
+    if (item.selected) chip.classList.add("selected");
+    if (!item.ready) chip.classList.add("offline");
+    chip.title = item.error || item.url || "";
+    const dot = document.createElement("i");
+    dot.className = "dot";
+    chip.appendChild(dot);
+    const roleEl = document.createElement("span");
+    roleEl.className = "role";
+    roleEl.textContent = role;
+    chip.appendChild(roleEl);
+    const addr = document.createElement("span");
+    addr.className = "addr";
+    addr.textContent = item.url || "未配置地址";
+    chip.appendChild(addr);
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = status;
+    chip.appendChild(tag);
+    el.appendChild(chip);
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "backend-refresh";
+  button.dataset.backendRefresh = "1";
+  button.textContent = "重新检测";
+  el.appendChild(button);
+}
+
+async function refreshBackends() {
+  const button = document.querySelector("[data-backend-refresh]");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch("/api/backends?refresh=1", { cache: "no-store" });
+    if (!response.ok) throw new Error(`后端检测失败（HTTP ${response.status}）`);
+    const payload = await response.json();
+    state.backend = payload.backend || state.backend;
+    state.remote = payload.remote || state.remote;
+    updateBackendNote();
+    renderBackendPool();
+    $("modePill").textContent = state.mode === "live" ? backendModeLabel() : "演示模式";
+    $("footerBackend").textContent = backendFooterLabel();
+    if (!state.backend.exists && state.mode === "live") {
+      setMode("mock", { silent: true });
+      toast("真实后端均不可用，已切回演示模式；演示不受影响");
+    } else if (state.backend.exists && state.backend.remote_fallback_used) {
+      toast("主后端不可达，已自动切到备用后端");
+    } else if (state.backend.exists) {
+      toast("真实后端检测完成，当前后端可用");
+    } else {
+      toast("未发现可用真实后端，演示模式仍可正常使用");
+    }
+  } catch (error) {
+    toast(`检测失败：${error.message}`);
+  } finally {
+    const next = document.querySelector("[data-backend-refresh]");
+    if (next) next.disabled = false;
+  }
 }
 
 function setMode(mode, options = {}) {
@@ -343,10 +444,16 @@ function updateBackendNote() {
   }
   if (state.backend.source === "remote") {
     note.classList.remove("warn");
+    const remoteUrls = state.backend.remote_urls || [];
+    const backupNote = remoteUrls.length > 1
+      ? `（主/备共 ${remoteUrls.length} 个，${state.backend.remote_fallback_used ? "主后端不可达，已自动切到备用" : "主后端可用"}）`
+      : "";
     const patchNote = state.backend.patched
       ? "已启用独立实际交集参数，可演示“未达到门限”。"
       : "远程二进制未打补丁，只能演示“达到门限”。";
-    note.textContent = `远程真实后端：${state.backend.remote_url || state.backend.binary}。本机负责界面，协议在服务器执行；演示模式仍可随时切回。${patchNote}`;
+    const ports = state.backend.ports || {};
+    const portNote = ports.p0 && ports.p1 ? `（协议端口 ${ports.p0}/${ports.p1}）` : "";
+    note.textContent = `远程真实后端：${state.backend.remote_url || state.backend.binary}${backupNote}${portNote}。本机负责界面，协议在服务器执行；演示模式仍可随时切回。${patchNote}`;
     return;
   }
   if (!state.backend.exists) {
@@ -361,7 +468,9 @@ function updateBackendNote() {
   const stat = state.backend.binary_mtime
     ? `（${state.backend.binary_mtime}，${(Number(state.backend.binary_size || 0) / 1048576).toFixed(2)} MB）`
     : "";
-  note.textContent = `真实后端：${state.backend.binary}${stat}。三方 Qin-3 协议（角色 0/1/2，端口 1212/1213）。${patchNote} 需要接真实文件时，用右上角「真实数据 Demo」。`;
+  const ports = state.backend.ports || {};
+  const portText = ports.p0 && ports.p1 ? `${ports.p0}/${ports.p1}` : "1212/1213";
+  note.textContent = `真实后端：${state.backend.binary}${stat}。三方 Qin-3 协议（角色 0/1/2，端口 ${portText}）。${patchNote} 需要接真实文件时，用右上角「真实数据 Demo」。`;
 }
 
 function scenarioById(id) {
@@ -523,6 +632,7 @@ function syncControls() {
       ? "真实后端当前把门限同时当作实际交集；要演示拒绝分支，请应用补丁并设置 MYPSI_PATCHED=1。"
       : "仅演示模式可调；真实后端由协议算出，不直接暴露。");
   updateBackendNote();
+  renderBackendPool();
   if (!custom) renderGeneratedDataset();
 }
 
@@ -1264,6 +1374,12 @@ function closeDiagnostics() {
 }
 
 function bindEvents() {
+  const pool = $("backendPool");
+  if (pool) {
+    pool.addEventListener("click", (event) => {
+      if (event.target.closest("[data-backend-refresh]")) refreshBackends();
+    });
+  }
   document.querySelectorAll("#stepNav button").forEach((button) => {
     button.addEventListener("click", () => {
       const target = button.dataset.target;
@@ -1408,6 +1524,7 @@ async function boot() {
     const config = await response.json();
     state.config = config;
     state.backend = config.backend;
+    state.remote = config.remote || null;
     try {
       const versionResponse = await fetch("/api/version", { cache: "no-store" });
       if (versionResponse.ok) state.version = await versionResponse.json();
@@ -1445,8 +1562,9 @@ async function boot() {
     if (state.version && state.version.urls) $("footerBackend").title = state.version.urls.join(" / ");
     if (!state.backend.exists) {
       $("backendNote").classList.add("warn");
+      const remoteCount = (state.backend.remote_urls || []).length;
       $("backendNote").textContent = state.backend.remote_configured
-        ? `远程真实后端不可用（${state.backend.remote_error || "未配置 MYPSI_BIN"}）；当前使用演示模式。`
+        ? `${remoteCount || 1} 个远程真实后端都不可用（${state.backend.remote_error || "未配置 MYPSI_BIN"}）；当前使用演示模式。`
         : "当前未配置真实后端，使用演示模式；Windows 可设置 PSI_REMOTE，Linux 可设置 MYPSI_BIN。";
       if (requestedMode === "live") toast("真实后端未就绪，已使用演示模式；配置后刷新即可切到真实协议");
     }

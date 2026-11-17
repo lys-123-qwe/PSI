@@ -1,5 +1,7 @@
-# IDEA 本地配置文件
-.idea/
+# IDEA 本地配置；只共享可移植的运行配置，不共享 workspace.xml
+.idea/*
+!.idea/runConfigurations/
+!.idea/runConfigurations/*.xml
 *.iml
 *.iws
 *.ipr
@@ -21,3 +23,9 @@ sources/myPSI-Qin-3/*_link/
 
 # 本地真实后端地址（不要提交；复制 example 后填写自己的服务器）
 demo/remote-backend.txt
+
+# 本机 Linux 后端路径（不要提交；复制 example 后填写自己的路径）
+demo/backend.env
+
+# 本地留存的 Linux ELF 编译产物（体积大、平台相关，不提交）
+demo/bin/

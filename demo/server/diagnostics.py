@@ -162,7 +162,8 @@ def selfcheck(host: str, port: int) -> dict[str, Any]:
         checks.append(_check(
             "warn",
             "任务状态",
-            f"有任务运行中（stage {snapshot.get('stage')}）；后端固定端口 1212/1213，请串行演示。",
+            f"当前实例有任务运行中（stage {snapshot.get('stage')}）。"
+            "如果两个人同时演示，请各自使用不同 PORT 和 MYPSI_PORT_BASE。",
         ))
     else:
         checks.append(_check("ok", "任务状态", "当前空闲，可以开始新一轮演示。"))

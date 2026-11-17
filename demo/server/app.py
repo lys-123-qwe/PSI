@@ -18,7 +18,7 @@ sys.path.insert(0, HERE)
 import remote  # noqa: E402
 from backends import effective_backend  # noqa: E402
 from diagnostics import APP_VERSION, selfcheck, server_info  # noqa: E402
-from orchestrator import bench, cancel, progress, run  # noqa: E402
+from orchestrator import acquire_port_lock, bench, cancel, progress, run  # noqa: E402
 from paper import run_paper_gs  # noqa: E402
 from paper_path import status as paper_path_status  # noqa: E402
 from scenarios import DISABLED_SCENARIOS, SCENARIOS, default_config  # noqa: E402
@@ -86,7 +86,22 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/config":
             self._json(200, _scenario_payload())
             return
+        if path == "/api/backends":
+            query = parse_qs(parsed.query)
+            refresh = (query.get("refresh") or ["0"])[0].lower() in {"1", "true", "yes"}
+            if refresh and remote.configured():
+                remote.status(force=True)
+            self._json(200, {
+                "ok": True,
+                "remote": remote.summary(),
+                "backend": effective_backend(),
+            })
+            return
         if path == "/api/health":
+            query = parse_qs(parsed.query)
+            refresh = (query.get("refresh") or ["0"])[0].lower() in {"1", "true", "yes"}
+            if refresh and remote.configured():
+                remote.status(force=True)
             info = server_info(self.server.demo_host, self.server.demo_port, backend=effective_backend())
             self._json(200, {
                 "ok": True,
@@ -222,9 +237,16 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
+    try:
+        lock_path = acquire_port_lock()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr, flush=True)
+        raise SystemExit(1) from None
     httpd = DemoServer((args.host, args.port), Handler, args.host, args.port)
     info = server_info(args.host, args.port)
     print(f"PSI demo v{APP_VERSION} bind {args.host}:{args.port}", flush=True)
+    if lock_path:
+        print(f"port lock: {lock_path}", flush=True)
     for url in info["urls"]:
         print(f"open: {url}", flush=True)
     print(f"backend: {info['backend']}", flush=True)

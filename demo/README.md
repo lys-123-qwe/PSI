@@ -2,12 +2,15 @@
 
 把现有 C/C++ 隐私求交后端包成一个可点击、可讲解、可现场演示的 Web Demo。
 
+> 换一台电脑、发给别人、局域网共享或部署到新服务器，见 `demo/SHARE.md`。
+> 对方只装了 Python 时，解压后双击 `start-demo.cmd`；要用真实协议再双击 `connect-server.cmd`。
+
 ## 这套东西是什么
 
 - 5 屏 Web：场景选择 → 参数 → 运行 → 结果 → 性能。
 - 两种模式：
   - **演示模式（mock）**：不依赖后端，时间按 CCS '23 论文表 7.7 锚定；适合讲流程、讲门限翻转、做备份视频。
-  - **真实后端（live）**：在 Linux 上调用 `myPSI-Qin-3/bin/frontend`，解析真实阶段耗时和 `mIntersection's size`。这份 Qin-3 代码是**三方协议**：角色 1 监听 1212、角色 2 监听 1213、角色 0 同时连接两端，页面会自动切到“3 方”。
+  - **真实后端（live）**：在 Linux 上调用 `myPSI-Qin-3/bin/frontend`，解析真实阶段耗时和 `mIntersection's size`。这份 Qin-3 代码是**三方协议**：角色 1 监听 `MYPSI_PORT_BASE+12`、角色 2 监听 `MYPSI_PORT_BASE+13`、角色 0 同时连接两端；默认基址 1200 即 1212/1213，页面会自动切到“3 方”。同一台 Linux 可用不同 `PORT` + `MYPSI_PORT_BASE` 起多个实例。
 - 数据准备有三种方式：
   - **自动生成**：填集合规模 `2^n`、门限 `k`、共同元素数 `c`；用于百万级性能演示，对应现有 C++ 后端的伪随机集合。
   - **手动输入**：A/B 两方各填最多 200 条元素（每行一个，也支持逗号/空格分隔），由 Python 演示后端计算真实交集并做门限判断；用于现场讲清“双方各自有数据 + 交集够不够”。这是本地演示，不是密码学 PSI；真实 C++ 后端仍未接入任意集合/文件输入。
@@ -29,7 +32,7 @@
 
 ## 最快跑起来（Windows / macOS / Linux，演示模式）
 
-要求 Python 3.10+，不需要安装任何 pip 包。
+要求 Python 3.8+（推荐 3.10+），不需要安装任何 pip 包。
 
 Linux / macOS：
 
@@ -56,9 +59,11 @@ cd demo
 - `/`：首页，右上角可在“演示模式 / 真实后端”之间切换；
 - `/real`：三份真实文件的三方门限求交。
 
-启动时会自动选择：本地 `MYPSI_BIN` 或 `PSI_REMOTE` / `remote-backend.txt` 指向的远程真实后端可用 → 首页默认进真实模式；不可用 → 首页默认演示模式。两种模式始终都能在页面上切换。
+启动时会自动选择：本地 `MYPSI_BIN` 或 `PSI_REMOTE` / `remote-backend.txt` 中第一个可用的远程真实后端 → 首页默认进真实模式；不可用 → 首页默认演示模式。两种模式始终都能在页面上切换。
 
-Windows 本地没有 Linux ELF 时，把 `remote-backend.example.txt` 复制成 `remote-backend.txt` 并写入自己的 Linux 服务地址（或设置 `PSI_REMOTE`），即可把真实协议请求转发到服务器。远程不可达时只影响真实模式，演示模式仍可用，`/real` 顶部会给出可点击的服务器地址。
+Windows 本地没有 Linux ELF 时，把 `remote-backend.example.txt` 复制成 `remote-backend.txt` 并写入 Linux 服务地址，一行一个，按主到备排列（或设置分号分隔的 `PSI_REMOTE`），即可把真实协议请求转发到服务器。主后端连接失败会自动尝试下一个；全部不可达时只影响真实模式，演示模式仍可用，`/real` 顶部会给出可点击的服务器地址。
+
+如果要让两台 Linux（或导师同一台 Linux 上的两个实例）互为主备，见 `BACKENDS.md`：每台 Windows 按“自己优先”写两行，页面会显示主/备状态点，主实例没启动时自动切到备用。
 
 ## 真实数据（三方，`/real`）
 
@@ -83,7 +88,7 @@ Windows 本地没有 Linux ELF 时，把 `remote-backend.example.txt` 复制成 
 直接用 IDEA 打开项目根目录（带 `PSI-Demo.iml` 的目录）。仓库不会提交 `.idea/`：
 
 - Windows：运行配置选 **PSI Demo Server (Windows - Demo)**，或直接执行 `.\demo\start.ps1`。是否使用真实后端由本地 `demo/remote-backend.txt` / `PSI_REMOTE` 决定。
-- Linux：选 **PSI Demo Server (Linux - Real Data)**，会监听 `0.0.0.0:8787`。
+- Linux：选 **PSI Demo Server (Linux - Real A 8787)** 或 **PSI Demo Server (Linux - Real B 8788)**；A 用协议 1212/1213，B 用 1332/1333，可同时运行。
 - 如果 IDEA 没立刻显示配置，执行一次 **File → Reload from Disk**，或重启 IDEA。
 - 运行后打开 <http://127.0.0.1:8787>；服务器上则打开 `http://<服务器IP>:8787`。
 
@@ -98,10 +103,10 @@ Windows 本地 IDEA 不能直接执行服务器上的 Linux ELF。`MYPSI_BIN` �
 1. IDEA 欢迎页选择 **Remote Development → SSH → New Connection**。
 2. 主机填 `<服务器用户>@<服务器IP>`，选择 SSH Key 或密码认证。
 3. 打开服务器上的项目目录，例如 `/path/to/psidemo`。
-4. 选择运行配置 **PSI Demo Server (Linux - Real Data)**，点绿色三角。
+4. 选择运行配置 **PSI Demo Server (Linux - Real A 8787)**（或 B 8788），点绿色三角。
 5. 打开 `http://<服务器IP>:8787/real`。
 
-这个 Linux 运行配置已经固定为：
+Linux 运行配置 A 为：
 
 ```text
 工作目录：<服务器项目>/demo
@@ -109,8 +114,12 @@ Windows 本地 IDEA 不能直接执行服务器上的 Linux ELF。`MYPSI_BIN` �
 命令：    python3 server/app.py --host 0.0.0.0 --port 8787
 MYPSI_BIN=/path/to/myPSI-frontend-patched
 MYPSI_PATCHED=1
+MYPSI_LD_LIBRARY_PATH=/path/to/relic/build-linux/lib
+MYPSI_PORT_BASE=1200
 MYPSI_TIMEOUT=300
 ```
+
+配置 B 只把端口改成 `8788` / `MYPSI_PORT_BASE=1320`。两个配置可以一起启动，各自跑真实任务不会抢端口；同一配置内仍然串行。
 
 如果只想在 Windows 本地改代码、远程服务器保持运行，也可以把 IDEA 只作为编辑器和 SSH 终端。Windows 的 `PSI Demo Server (Windows - Demo)` 通过 `PSI_REMOTE` 或 `remote-backend.txt` 桥接真实协议；两者都为空则只跑 mock。
 
@@ -138,7 +147,7 @@ curl -s http://127.0.0.1:8787/api/selfcheck | python3 -m json.tool
 - `overall: fail`：有阻断项（前端文件缺失、Python 太旧、二进制不可执行），先修再上台。
 - 自检里会列出 `http://<服务器IP>:8787`；用 `--host 0.0.0.0` 启动时启动日志也会打印同样地址。
 
-Windows 上如果 `python` 指向 3.7，推荐直接使用启动脚本，它会自动寻找 Python 3.10+：
+Windows 上如果 `python` 指向 3.7，推荐直接使用启动脚本，它会自动寻找 Python 3.8+：
 
 ```powershell
 cd demo
@@ -183,7 +192,7 @@ python3 server/app.py --host 0.0.0.0 --port 8787
 
 > 论文 GS 阶段可单独复现：服务器上运行官方 `gs.cpp`（`N=2^20`、`Round=8000`、32 线程），本机实测约 2.1s；论文 pSize-Test 为 7.02s，完整 pTPSI 为 7.36s。页面“跑官方 GS 2^20”按钮调用 `/api/paper-bench`，会明确标注“仅 GS 阶段，不含 F-count/SPDZ 与 PSI”。
 
-> 后端使用固定端口 `1212/1213`（`localhost`），所以**一次只能跑一个真实任务**；服务端已经加锁，第二个请求会提示串行演示。Qin-3 必须同时起两个发送方（角色 1/2），少一个接收方就会卡在 `client socket connect error`；Demo 后端已经自动按三进程编排。
+> 后端默认使用 `localhost:1212/1213`，可用 `MYPSI_PORT_BASE` 改基址（例如 1320 → 1332/1333）。**同一个 Demo 实例内一次只能跑一个真实任务**，服务端已有串行锁；不同实例只要 `PORT` 和 `MYPSI_PORT_BASE` 不同就可以并发。Qin-3 必须同时起两个发送方（角色 1/2），少一个接收方就会卡在 `client socket connect error`；Demo 后端已经自动按三进程编排。
 
 ## 与论文 Table IV/V 的数据对齐（N=3, t=0.6n）
 

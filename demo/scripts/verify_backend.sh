@@ -5,9 +5,10 @@
 #   MYPSI_BIN=/path/to/myPSI-Qin-3/bin/frontend bash demo/scripts/verify_backend.sh
 #   MYPSI_BIN=... MYPSI_PATCHED=1 bash demo/scripts/verify_backend.sh
 #
-# myPSI-Qin-3 is a 3-party protocol: role 1 listens on 1212, role 2 listens on
-# 1213, and role 0 connects to both. Start both senders before the receiver.
-# It expects the fixed ports to be free; do not run two demos at once.
+# myPSI-Qin-3 is a 3-party protocol: role 1 listens on base+12, role 2 listens
+# on base+13, and role 0 connects to both. Start both senders before the
+# receiver. Set MYPSI_PORT_BASE=1320 to verify a second instance on the same
+# machine without touching the default 1212/1213 pair.
 
 set -uo pipefail
 
@@ -19,6 +20,10 @@ fi
 BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 BIN_DIR="$(dirname "$BIN")"
 BIN_NAME="$(basename "$BIN")"
+PORT_BASE="${MYPSI_PORT_BASE:-1200}"
+PORT_P0=$((PORT_BASE + 12))
+PORT_P1=$((PORT_BASE + 13))
+export MYPSI_PORT_BASE="$PORT_BASE"
 
 magic="$(head -c 4 "$BIN" | od -An -tx1 | tr -d ' \n')"
 if [[ "$magic" != "7f454c46" ]]; then
@@ -26,8 +31,8 @@ if [[ "$magic" != "7f454c46" ]]; then
 fi
 
 if command -v ss >/dev/null 2>&1; then
-  if ss -ltn 2>/dev/null | grep -qE ':(1212|1213)[[:space:]]'; then
-    echo "ERROR: ports 1212/1213 are already in use; stop the old demo/backend first." >&2
+  if ss -ltn 2>/dev/null | grep -qE ":(${PORT_P0}|${PORT_P1})[[:space:]]"; then
+    echo "ERROR: ports ${PORT_P0}/${PORT_P1} are already in use; choose another MYPSI_PORT_BASE." >&2
     exit 3
   fi
 fi

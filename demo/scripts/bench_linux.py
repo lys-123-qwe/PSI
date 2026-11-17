@@ -50,8 +50,13 @@ def grab(pattern: re.Pattern[str], text: str, cast=float):
 
 
 def run_case(binary: Path, n_log: int, threshold: int, common: int, timeout_s: float) -> dict:
-    if port_is_busy(1212) or port_is_busy(1213):
-        raise RuntimeError("端口 1212/1213 已被占用；请先停止旧的真实求交任务")
+    base = int(os.environ.get("MYPSI_PORT_BASE", "1200"))
+    port_p0, port_p1 = base + 12, base + 13
+    if port_is_busy(port_p0) or port_is_busy(port_p1):
+        raise RuntimeError(
+            f"端口 {port_p0}/{port_p1} 已被占用；请先停止该实例的真实任务，"
+            "或换一个 MYPSI_PORT_BASE"
+        )
 
     cwd = binary.parent
     started = time.time()

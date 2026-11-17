@@ -1,0 +1,25 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PSI Demo Server (Linux - Real B 8788)" type="ShConfigurationType">
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/demo/server/app.py" />
+    <option name="SCRIPT_OPTIONS" value="--host 0.0.0.0 --port 8788" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/demo" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/usr/bin/python3" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="true" />
+    <envs>
+      <env name="MYPSI_BIN" value="/home/lys/psi-demo/myPSI-frontend-patched" />
+      <env name="MYPSI_PATCHED" value="1" />
+      <env name="MYPSI_LD_LIBRARY_PATH" value="/home/lys/psi-demo/relic/build-linux/lib" />
+      <env name="MYPSI_PORT_BASE" value="1320" />
+      <env name="PORT" value="8788" />
+      <env name="MYPSI_TIMEOUT" value="300" />
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>

@@ -17,6 +17,7 @@ from typing import Any
 from scenarios import SCENARIOS, get_scenario
 
 LIVE_LOCK = threading.Lock()
+_PORT_LOCK_HANDLE = None
 _JOB_LOCK = threading.Lock()
 _JOB: dict[str, Any] = {}
 
@@ -84,9 +85,68 @@ def _normalize_hashes(raw: Any, label: str) -> list[str]:
     return out
 
 
+def _port_base() -> int:
+    raw = os.environ.get("MYPSI_PORT_BASE", "1200")
+    try:
+        base = int(raw)
+    except (TypeError, ValueError):
+        base = 1200
+    if base < 1024 or base > 64000:
+        base = 1200
+    return base
+
+
+def acquire_port_lock() -> str:
+    """Keep two demo servers on one Linux host from sharing Qin-3 ports.
+
+    The protocol ports are derived from MYPSI_PORT_BASE, so an exclusive lock
+    per base catches the misconfiguration at startup instead of failing midway
+    through a live run.  Windows has no fcntl; the local demo there never runs
+    the Linux Qin-3 binary, so it simply skips the lock.
+    """
+    global _PORT_LOCK_HANDLE
+    base = _port_base()
+    try:
+        import fcntl
+    except ImportError:
+        return ""
+    path = f"/tmp/psi-demo-port-base-{base}.lock"
+    writable = True
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    except PermissionError:
+        # A different Linux user may own the lock file.  flock works on a
+        # read-only descriptor, so we can still detect the conflict.
+        fd = os.open(path, os.O_RDONLY)
+        writable = False
+    try:
+        os.fchmod(fd, 0o666)
+    except OSError:
+        pass
+    handle = os.fdopen(fd, "r+" if writable else "r", encoding="utf-8")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.seek(0)
+        holder = handle.read().strip() or "未知"
+        handle.close()
+        raise RuntimeError(
+            f"协议端口基址 {base}（{base + 12}/{base + 13}）已被另一个 Demo 实例占用"
+            f"（PID {holder}）。请给这个实例换一个 MYPSI_PORT_BASE，例如 1320。"
+        ) from None
+    if writable:
+        handle.seek(0)
+        handle.truncate()
+        handle.write(str(os.getpid()))
+        handle.flush()
+    _PORT_LOCK_HANDLE = handle
+    return path
+
+
 def backend_status() -> dict[str, Any]:
     binary = os.environ.get("MYPSI_BIN", "")
     exists = bool(binary) and os.path.isfile(binary)
+    port_base = _port_base()
     size = None
     mtime = None
     if exists:
@@ -106,8 +166,15 @@ def backend_status() -> dict[str, Any]:
         "platform": os.name,
         "protocol": "myPSI-Qin-3 / 3-party",
         "min_parties": 3,
+        "port_base": port_base,
+        "ports": {
+            "p0": port_base + 12,
+            "p1": port_base + 13,
+            "alt_a": port_base + 112,
+            "alt_b": port_base + 113,
+        },
         "note": (
-            "真实后端已配置（三方 Qin-3：角色 0/1/2，端口 1212/1213）" if exists else
+            f"真实后端已配置（三方 Qin-3：角色 0/1/2，端口 {port_base + 12}/{port_base + 13}）" if exists else
             "未配置 MYPSI_BIN；当前只能使用演示模式（Linux 上指向 Qin-3 的 frontend 二进制即可）"
         ),
     }
@@ -402,13 +469,16 @@ def run_live(cfg: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("未配置 MYPSI_BIN，或二进制不存在。请在 Linux 上设置 MYPSI_BIN=/path/to/frontend")
 
     if not LIVE_LOCK.acquire(blocking=False):
-        raise RuntimeError("已有一个真实后端任务在运行；当前后端使用固定端口 1212/1213，请串行演示")
+        raise RuntimeError(
+            "当前 Demo 实例已有一个真实任务在运行。"
+            "如果两个人要同时演示，请各自启动一个实例（不同 PORT 和 MYPSI_PORT_BASE）。"
+        )
 
     wall_started = time.time()
 
     # myPSI-Qin-3 是三方概率门限 PSI：
-    #   角色 0（接收方）作为 client 同时连接 1212 与 1213；
-    #   角色 1（发送方 P0）监听 1212，角色 2（发送方 P2）监听 1213。
+    #   角色 0（接收方 P0）作为 client 同时连接 1212 与 1213；
+    #   角色 1（发送方 P1）监听 1212，角色 2（发送方 P2）监听 1213。
     # 少起任何一个发送方，接收方都会卡在 client socket connect error。
     parties = 3
     procs: list[subprocess.Popen[str]] = []
@@ -432,6 +502,8 @@ def run_live(cfg: dict[str, Any]) -> dict[str, Any]:
         env = os.environ.copy()
         env.pop("MYPSI_IN", None)
         env.pop("MYPSI_OUT", None)
+        port_base = _port_base()
+        env["MYPSI_PORT_BASE"] = str(port_base)
         if os.environ.get("MYPSI_LD_LIBRARY_PATH"):
             env["LD_LIBRARY_PATH"] = os.environ["MYPSI_LD_LIBRARY_PATH"]
 
@@ -465,7 +537,7 @@ def run_live(cfg: dict[str, Any]) -> dict[str, Any]:
             scenario=cfg["scenario"],
             scenario_name=scenario["name"],
             stage=0,
-            message="启动两个发送方（绑定 127.0.0.1:1212/1213）",
+            message=f"启动两个发送方（绑定 127.0.0.1:{port_base + 12}/{port_base + 13}）",
             started_at=time.time(),
             cancelled=False,
             procs=[],
@@ -473,6 +545,8 @@ def run_live(cfg: dict[str, Any]) -> dict[str, Any]:
             n_log=n_log,
             threshold=threshold,
             common=common,
+            port_base=port_base,
+            ports={"p0": port_base + 12, "p1": port_base + 13},
             offline_s=None,
             share_s=None,
             intersection_s=None,
@@ -630,7 +704,24 @@ def _validate_file_config(cfg: dict[str, Any], scenario_id: str) -> dict[str, An
     if not set_a or not set_b or not set_c:
         raise ValueError("真实文件模式需要 A、B、C 三方都至少有一个非空元素")
     capacity = max(len(set_a), len(set_b), len(set_c))
-    n_log = max(8, (capacity - 1).bit_length())
+    required_log = max(8, (capacity - 1).bit_length())
+    raw_capacity = cfg.get("capacity_n_log")
+    if raw_capacity in (None, "", "auto"):
+        n_log = required_log
+    else:
+        if isinstance(raw_capacity, bool):
+            raise ValueError("协议容量 capacity_n_log 必须是整数指数")
+        try:
+            n_log = int(raw_capacity)
+        except (TypeError, ValueError):
+            raise ValueError("协议容量 capacity_n_log 必须是整数指数") from None
+        if n_log < required_log:
+            raise ValueError(
+                f"协议容量 2^{n_log} = {2 ** n_log:,} 小于最大集合 {capacity:,} 条；"
+                f"至少需要 2^{required_log} = {2 ** required_log:,}"
+            )
+        if n_log > 17:
+            raise ValueError(f"协议容量最大 2^17 = {MAX_FILE_ITEMS:,} 条")
     if n_log > 17:
         raise ValueError(f"单方最多 {MAX_FILE_ITEMS} 条（2^17），当前最大 {capacity} 条，请先抽样")
     n = 2 ** n_log
